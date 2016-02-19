@@ -177,6 +177,26 @@ def emscript(infile, settings, outfile, outfile_name, libraries=[], compiler_eng
 
     metadata['declares'] = filter(lambda i64_func: i64_func not in ['getHigh32', 'setHigh32', '__muldi3', '__divdi3', '__remdi3', '__udivdi3', '__uremdi3'], metadata['declares']) # FIXME: do these one by one as normal js lib funcs
 
+    # Syscalls optimization. Our syscalls are static, and so if we see a very limited set of them - in particular,
+    # no open() syscall and just simple writing - then we don't need full filesystem support.
+    # If FORCE_FILESYSTEM is set, we can't do this. We also don't do it if INCLUDE_FULL_LIBRARY, since
+    # not including the filesystem would mean not including the full JS libraries, and the same for
+    # MAIN_MODULE since a side module might need the filesystem.
+    if not settings['NO_FILESYSTEM'] and not settings['FORCE_FILESYSTEM'] and not settings['INCLUDE_FULL_LIBRARY'] and not settings['MAIN_MODULE']:
+      syscall_prefix = '__syscall'
+      syscalls = filter(lambda declare: declare.startswith(syscall_prefix), metadata['declares'])
+      def is_int(x):
+        try:
+          int(x)
+          return True
+        except:
+          return False
+      syscalls = filter(lambda declare: is_int(declare[len(syscall_prefix):]), syscalls)
+      syscalls = map(lambda declare: int(declare[len(syscall_prefix):]), syscalls)
+      if set(syscalls).issubset(set([6, 54, 140, 146])): # close, ioctl, llseek, writev
+        if DEBUG: logging.debug('very limited syscalls (%s) so disabling full filesystem support' % ', '.join(map(str, syscalls)))
+        settings['NO_FILESYSTEM'] = 1
+
     # Integrate info from backend
     if settings['SIDE_MODULE']:
       settings['DEFAULT_LIBRARY_FUNCS_TO_INCLUDE'] = [] # we don't need any JS library contents in side modules
@@ -192,6 +212,8 @@ def emscript(infile, settings, outfile, outfile_name, libraries=[], compiler_eng
       settings['ASM_JS'] = 2
 
     settings['MAX_GLOBAL_ALIGN'] = metadata['maxGlobalAlign']
+
+    settings['IMPLEMENTED_FUNCTIONS'] = metadata['implementedFunctions']
 
     assert not (metadata['simd'] and settings['SPLIT_MEMORY']), 'SIMD is used, but not supported in SPLIT_MEMORY'
 
@@ -483,12 +505,21 @@ function _emscripten_asm_const_%s(%s) {
                          'select', 'swizzle', 'shuffle',
                          'load', 'store', 'load1', 'store1', 'load2', 'store2', 'load3', 'store3']
     simdintboolfuncs = ['and', 'xor', 'or', 'not']
+    if metadata['simdUint8x16']:
+      simdinttypes += ['Uint8x16']
+      simdintfloatfuncs += ['fromUint8x16Bits']
     if metadata['simdInt8x16']:
       simdinttypes += ['Int8x16']
       simdintfloatfuncs += ['fromInt8x16Bits']
+    if metadata['simdUint16x8']:
+      simdinttypes += ['Uint16x8']
+      simdintfloatfuncs += ['fromUint16x8Bits']
     if metadata['simdInt16x8']:
       simdinttypes += ['Int16x8']
       simdintfloatfuncs += ['fromInt16x8Bits']
+    if metadata['simdUint32x4']:
+      simdinttypes += ['Uint32x4']
+      simdintfloatfuncs += ['fromUint32x4', 'fromUint32x4Bits']
     if metadata['simdInt32x4']:
       simdinttypes += ['Int32x4']
       simdintfloatfuncs += ['fromInt32x4', 'fromInt32x4Bits']
@@ -508,10 +539,8 @@ function _emscripten_asm_const_%s(%s) {
       simdbooltypes += ['Bool64x2']
 
     simdfloatfuncs = simdfuncs + simdintfloatfuncs + ['div', 'min', 'max', 'minNum', 'maxNum', 'sqrt',
-                                  'abs', 'reciprocalApproximation', 'reciprocalSqrtApproximation'];
-    simdintfuncs = simdfuncs + simdintfloatfuncs + simdintboolfuncs + ['shiftRightArithmeticByScalar',
-                                'shiftRightLogicalByScalar',
-                                'shiftLeftByScalar'];
+                                  'abs', 'reciprocalApproximation', 'reciprocalSqrtApproximation']
+    simdintfuncs = simdfuncs + simdintfloatfuncs + simdintboolfuncs + ['shiftLeftByScalar', 'shiftRightByScalar', 'addSaturate', 'subSaturate']
     simdboolfuncs = simdfuncs + simdintboolfuncs + ['anyTrue', 'allTrue']
     simdtypes = simdfloattypes + simdinttypes + simdbooltypes
 
@@ -685,13 +714,13 @@ function ftCall_%s(%s) {%s
 
     def quote(prop):
       if settings['USE_CLOSURE_COMPILER'] == 2:
-        return "'" + prop + "'"
+        return ''.join(map(lambda p: "'" + p + "'", prop.split('.')))
       else:
         return prop
 
     def access_quote(prop):
       if settings['USE_CLOSURE_COMPILER'] == 2:
-        return "['" + prop + "']"
+        return ''.join(map(lambda p: "['" + p + "']", prop.split('.')))
       else:
         return '.' + prop
 
@@ -737,7 +766,10 @@ function ftCall_%s(%s) {%s
           if sub in s:
             return True
         return False
-      nonexisting_simd_symbols = ['Int8x16_fromInt8x16', 'Int16x8_fromInt16x8', 'Int32x4_fromInt32x4', 'Float32x4_fromFloat32x4', 'Float64x2_fromFloat64x2']
+      nonexisting_simd_symbols = ['Int8x16_fromInt8x16', 'Uint8x16_fromUint8x16', 'Int16x8_fromInt16x8', 'Uint16x8_fromUint16x8', 'Int32x4_fromInt32x4', 'Uint32x4_fromUint32x4', 'Float32x4_fromFloat32x4', 'Float64x2_fromFloat64x2']
+      nonexisting_simd_symbols += ['Int32x4_addSaturate', 'Int32x4_subSaturate', 'Uint32x4_addSaturate', 'Uint32x4_subSaturate']
+      nonexisting_simd_symbols += [(x + '_' + y) for x in ['Int8x16', 'Uint8x16', 'Int16x8', 'Uint16x8', 'Float64x2'] for y in ['load2', 'load3', 'store2', 'store3']]
+      nonexisting_simd_symbols += [(x + '_' + y) for x in ['Int8x16', 'Uint8x16', 'Int16x8', 'Uint16x8'] for y in ['load1', 'store1']]
 
       asm_global_funcs += ''.join(['  var SIMD_' + ty + '=global' + access_quote('SIMD') + access_quote(ty) + ';\n' for ty in simdtypes])
 
@@ -1301,6 +1333,8 @@ def emscript_wasm_backend(infile, settings, outfile, outfile_name, libraries=[],
     settings['SIMD'] = 1
 
   settings['MAX_GLOBAL_ALIGN'] = metadata['maxGlobalAlign']
+
+  settings['IMPLEMENTED_FUNCTIONS'] = metadata['implementedFunctions']
 
   # Save settings to a file to work around v8 issue 1579
   settings_file = temp_files.get('.txt').name

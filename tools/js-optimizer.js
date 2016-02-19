@@ -2003,7 +2003,14 @@ function detectSign(node) {
         case '|': case '&': case '^': case '<<': case '>>': return ASM_SIGNED;
         case '>>>': return ASM_UNSIGNED;
         case '+': case '-': return ASM_FLEXIBLE;
-        case '*': case '/': return ASM_NONSIGNED; // without a coercion, these are double
+        case '*': {
+          // a double, unless one is a small int and the other is an int, in
+          // which case one is a num. that can't be a double, since then it
+          // would be a +num.
+          if (node[2][0] === 'num' || node[3][0] === 'num') return ASM_FLEXIBLE;
+          return ASM_NONSIGNED;
+        }
+        case '/': return ASM_NONSIGNED; // without a coercion, this is double
         case '==': case '!=': case '<': case '<=': case '>': case '>=': return ASM_SIGNED;
         default: throw 'yikes ' + node[1];
       }
@@ -6005,7 +6012,7 @@ function emterpretify(ast) {
   }
 
   // functions which are ok to run while async, even if not emterpreted
-  var OK_TO_CALL_WHILE_ASYNC = set('stackSave', 'stackRestore', 'stackAlloc', 'setThrew', '_memset', '_memcpy', '_memmove', '_strlen', '_strncpy', '_strcpy', '_strcat');
+  var OK_TO_CALL_WHILE_ASYNC = set('stackSave', 'stackRestore', 'stackAlloc', 'setThrew', '_memset', '_memcpy', '_memmove', '_strlen', '_strncpy', '_strcpy', '_strcat', 'SAFE_HEAP_LOAD', 'SAFE_HEAP_STORE', 'SAFE_FT_MASK');
   function okToCallWhileAsync(name) {
     // dynCall *can* be on the stack, they are just bridges; what matters is where they go
     if (/^dynCall_/.test(name)) return true;
@@ -7751,6 +7758,93 @@ function eliminateDeadGlobals(ast) {
   });
 }
 
+// Removes obviously-unused code. Similar to closure compiler in its rules -
+// export e.g. by Module['..'] = theThing; , or use it somewhere, otherwise
+// it goes away.
+function JSDCE(ast) {
+  var scopes = [{}]; // begin with empty toplevel scope
+  function DUMP() {
+    printErr('vvvvvvvvvvvvvv');
+    for (var i = 0; i < scopes.length; i++) {
+      printErr(i + ' : ' + JSON.stringify(scopes[i]));
+    }
+    printErr('^^^^^^^^^^^^^^');
+  }
+  function ensureData(scope, name) {
+    if (scope[name]) return scope[name];
+    scope[name] = {
+      def: 0,
+      use: 0,
+      param: 0 // true for function params, which cannot be eliminated
+    };
+    return scope[name];
+  }
+  function cleanUp(ast, name) {
+    traverse(ast, function(node, type) {
+      if (type === 'defun' && node[1] === name) return emptyNode();
+      if (type === 'defun' || type === 'function') return null; // do not enter other scopes
+      if (type === 'var') {
+        node[1] = node[1].filter(function(varItem, j) {
+          var curr = varItem[0];
+          var value = varItem[1];
+          return curr !== name || (value && hasSideEffects(value));
+        });
+        if (node[1].length === 0) return emptyNode();
+      }
+    });
+    return ast;
+  }
+  traverse(ast, function(node, type) {
+    if (type === 'var') {
+      node[1].forEach(function(varItem, j) {
+        var name = varItem[0];
+        ensureData(scopes[scopes.length-1], name).def = 1;
+      });
+      return;
+    }
+    if (type === 'defun' || type === 'function') {
+      if (node[1]) ensureData(scopes[scopes.length-1], node[1]).def = 1;
+      var scope = {};
+      node[2].forEach(function(param) {
+        ensureData(scope, param).def = 1;
+        scope[param].param = 1;
+      });
+      scopes.push(scope);
+      return;
+    }
+    if (type === 'name') {
+      ensureData(scopes[scopes.length-1], node[1]).use = 1;
+    }
+  }, function(node, type) {
+    if (type === 'defun' || type === 'function') {
+      var scope = scopes.pop();
+      for (name in scope) {
+        var data = scope[name];
+        if (data.use && !data.def) {
+          // this is used from a higher scope, propagate the use down 
+          ensureData(scopes[scopes.length-1], name).use = 1;
+          continue;
+        }
+        if (data.def && !data.use && !data.param) {
+          // this is eliminateable!
+          cleanUp(node[3], name);
+        }
+      }
+    }
+  });
+  // toplevel
+  var scope = scopes.pop();
+  assert(scopes.length === 0);
+  for (name in scope) {
+    var data = scope[name];
+    if (data.def && !data.use) {
+      assert(!data.param); // can't be
+      // this is eliminateable!
+      cleanUp(ast, name);
+    }
+  }
+}
+
 // Passes table
 
 var minifyWhitespace = false, printMetadata = true, asm = false, asmPreciseF32 = false, emitJSON = false, last = false;
@@ -7787,6 +7881,7 @@ var passes = {
   findReachable: findReachable,
   dumpCallGraph: dumpCallGraph,
   asmLastOpts: asmLastOpts,
+  JSDCE: JSDCE,
   noop: function() {},
 
   // flags

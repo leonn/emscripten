@@ -301,7 +301,10 @@ var ASYNCIFY_WHITELIST = ['qsort',   // Functions in this list are never conside
                           'MUSL_vfprintf']; 
 
 var EXPORTED_RUNTIME_METHODS = [ // Methods that are exported on Module. By default we export quite a bit, you can reduce this list to lower your code size,
-  'FS_createFolder',             // especially when closure is run (exporting prevents closure from eliminating code)
+                                 // especially when closure is run (exporting prevents closure from eliminating code)
+                                 // Note that methods on this list are only exported if they are included (either automatically from linking, or due to being
+                                 // in DEFAULT_LIBRARY_FUNCS_TO_INCLUDE)
+  'FS_createFolder',
   'FS_createPath',
   'FS_createDataFile',
   'FS_createPreloadedFile',
@@ -329,12 +332,6 @@ var EXPORTED_RUNTIME_METHODS = [ // Methods that are exported on Module. By defa
   'stringToUTF8Array',
   'stringToUTF8',
   'lengthBytesUTF8',
-  'UTF16ToString',
-  'stringToUTF16',
-  'lengthBytesUTF16',
-  'UTF32ToString',
-  'stringToUTF32',
-  'lengthBytesUTF32',
   'stackTrace',
   'addOnPreRun',
   'addOnInit',
@@ -367,12 +364,12 @@ var NO_FILESYSTEM = 0; // If set, does not build in any filesystem support. Usef
                        // computation, but not reading files or using any streams (including fprintf, and other
                        // stdio.h things) or anything related. The one exception is there is partial support for printf,
                        // and puts, hackishly.
-var NO_BROWSER = 0; // If set, disables building in browser support using the Browser object. Useful if you are
-                    // just doing pure computation in a library, and don't need any browser capabilities like a main loop
-                    // (emscripten_set_main_loop), or setTimeout, etc.
-
-var NODE_STDOUT_FLUSH_WORKAROUND = 1; // Whether or not to work around node issues with not flushing stdout. This
-                                      // can cause unnecessary whitespace to be printed.
+                       // The compiler will automatically set this if it detects that syscall usage (which is static)
+                       // does not require a full filesystem. If you still want filesystem support, use
+                       // FORCE_FILESYSTEM
+var FORCE_FILESYSTEM = 0; // Makes full filesystem support be included, even if statically it looks like it is not
+                          // used. For example, if your C code uses no files, but you include some JS that does,
+                          // you might need this.
 
 var EXPORTED_FUNCTIONS = ['_main'];
                                     // Functions that are explicitly exported. These functions are kept alive
@@ -408,8 +405,8 @@ var DEBUG_LEVEL = 0;         // this will contain the debug level (-gx). you sho
 // For example, if you do not use some emscripten_*
 // C API call from C, but you want to call it from JS,
 // add it here (and in EXPORTED FUNCTIONS with prefix
-// "_", for closure).
-var DEFAULT_LIBRARY_FUNCS_TO_INCLUDE = ['memcpy', 'memset', 'malloc', 'free', '$Browser'];
+// "_", if you use closure compiler).
+var DEFAULT_LIBRARY_FUNCS_TO_INCLUDE = ['memcpy', 'memset', 'malloc', 'free'];
 
 var LIBRARY_DEPS_TO_AUTOEXPORT = ['memcpy']; // This list is also used to determine
                                              // auto-exporting of library dependencies (i.e., functions that
@@ -634,12 +631,6 @@ var WASM_BACKEND = 0; // Whether to use the WebAssembly backend that is in devel
                       // You should not set this yourself, instead set EMCC_WASM_BACKEND=1 in the
                       // environment.
 
-var WASM = 0; // Older WebAssembly experiment. Compress the asm.js module into an early proposal for WebAssembly,
-              // and ship a decompressor that runs on the client.
-              // Note that wasm loading is asynchronous in the browser, and for that reason we wrap the entire emitted
-              // code in a function - things will not reach the global scope by default. You can access things on the
-              // Module object.
-
 // Ports
 
 var USE_SDL = 1; // Specify the SDL version that is being linked against.
@@ -691,5 +682,15 @@ var PTHREAD_HINT_NUM_CORES = 4;
 var PTHREADS_PROFILING = 0; // True when building with --threadprofiler
 
 var MAX_GLOBAL_ALIGN = -1; // received from the backend
+
+// Duplicate function elimination. This coalesces function bodies that are
+// identical, which can happen e.g. if two methods have different C/C++
+// or LLVM types, but end up identical at the asm.js level (all pointers
+// are the same as int32_t in asm.js, for example).
+// This option is quite slow to run, as it processes and hashes all methods
+// in the codebase in multiple passes.
+var ELIMINATE_DUPLICATE_FUNCTIONS = 0; // disabled by default
+var ELIMINATE_DUPLICATE_FUNCTIONS_PASSES = 5;
+var ELIMINATE_DUPLICATE_FUNCTIONS_DUMP_EQUIVALENT_FUNCTIONS = 0;
 
 // Reserved: variables containing POINTER_MASKING.
