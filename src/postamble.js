@@ -1,39 +1,14 @@
+/**
+ * @license
+ * Copyright 2010 The Emscripten Authors
+ * SPDX-License-Identifier: MIT
+ */
 
 // === Auto-generated postamble setup entry stuff ===
-
-Module['asm'] = asm;
 
 {{{ exportRuntime() }}}
 
 #if MEM_INIT_IN_WASM == 0
-#if MEM_INIT_METHOD == 2
-#if USE_PTHREADS
-if (memoryInitializer && !ENVIRONMENT_IS_PTHREAD) (function(s) {
-#else
-if (memoryInitializer) (function(s) {
-#endif
-  var i, n = s.length;
-#if ASSERTIONS
-  n -= 4;
-  var crc, bit, table = new Int32Array(256);
-  for (i = 0; i < 256; ++i) {
-    for (crc = i, bit = 0; bit < 8; ++bit)
-      crc = (crc >>> 1) ^ ((crc & 1) * 0xedb88320);
-    table[i] = crc >>> 0;
-  }
-  crc = -1;
-  crc = table[(crc ^ n) & 0xff] ^ (crc >>> 8);
-  crc = table[(crc ^ (n >>> 8)) & 0xff] ^ (crc >>> 8);
-  for (i = 0; i < s.length; ++i) {
-    crc = table[(crc ^ s.charCodeAt(i)) & 0xff] ^ (crc >>> 8);
-  }
-  assert(crc === 0, "memory initializer checksum");
-#endif
-  for (i = 0; i < n; ++i) {
-    HEAPU8[GLOBAL_BASE + i] = s.charCodeAt(i);
-  }
-})(memoryInitializer);
-#else
 #if USE_PTHREADS
 if (memoryInitializer && !ENVIRONMENT_IS_PTHREAD) {
 #else
@@ -43,29 +18,34 @@ if (memoryInitializer) {
     memoryInitializer = locateFile(memoryInitializer);
   }
   if (ENVIRONMENT_IS_NODE || ENVIRONMENT_IS_SHELL) {
-    var data = Module['readBinary'](memoryInitializer);
-    HEAPU8.set(data, GLOBAL_BASE);
+    var data = readBinary(memoryInitializer);
+    HEAPU8.set(data, {{{ GLOBAL_BASE }}});
   } else {
     addRunDependency('memory initializer');
     var applyMemoryInitializer = function(data) {
       if (data.byteLength) data = new Uint8Array(data);
 #if ASSERTIONS
       for (var i = 0; i < data.length; i++) {
-        assert(HEAPU8[GLOBAL_BASE + i] === 0, "area for memory initializer should not have been touched before it's loaded");
+        assert(HEAPU8[{{{ GLOBAL_BASE }}} + i] === 0, "area for memory initializer should not have been touched before it's loaded");
       }
 #endif
-      HEAPU8.set(data, GLOBAL_BASE);
+      HEAPU8.set(data, {{{ GLOBAL_BASE }}});
       // Delete the typed array that contains the large blob of the memory initializer request response so that
       // we won't keep unnecessary memory lying around. However, keep the XHR object itself alive so that e.g.
       // its .status field can still be accessed later.
       if (Module['memoryInitializerRequest']) delete Module['memoryInitializerRequest'].response;
       removeRunDependency('memory initializer');
-    }
-    function doBrowserLoad() {
-      Module['readAsync'](memoryInitializer, applyMemoryInitializer, function() {
-        throw 'could not load memory initializer ' + memoryInitializer;
+    };
+    var doBrowserLoad = function() {
+      readAsync(memoryInitializer, applyMemoryInitializer, function() {
+        var e = new Error('could not load memory initializer ' + memoryInitializer);
+#if MODULARIZE
+          readyPromiseReject(e);
+#else
+          throw e;
+#endif
       });
-    }
+    };
 #if SUPPORT_BASE64_EMBEDDING
     var memoryInitializerBytes = tryParseAsDataURI(memoryInitializer);
     if (memoryInitializerBytes) {
@@ -74,7 +54,7 @@ if (memoryInitializer) {
 #endif
     if (Module['memoryInitializerRequest']) {
       // a network request has already been created, just use that
-      function useRequest() {
+      var useRequest = function() {
         var request = Module['memoryInitializerRequest'];
         var response = request.response;
         if (request.status !== 200 && request.status !== 0) {
@@ -95,7 +75,7 @@ if (memoryInitializer) {
 #endif
         }
         applyMemoryInitializer(response);
-      }
+      };
       if (Module['memoryInitializerRequest'].response) {
         setTimeout(useRequest, 0); // it's already here; but, apply it asynchronously
       } else {
@@ -107,125 +87,125 @@ if (memoryInitializer) {
     }
   }
 }
-#endif
 #endif // MEM_INIT_IN_WASM == 0
 
-#if CYBERDWARF
-  Module['cyberdwarf'] = _cyberdwarf_Debugger(cyberDWARFFile);
-#endif
-
-#if MODULARIZE
-#if MODULARIZE_INSTANCE == 0
-// Modularize mode returns a function, which can be called to
-// create instances. The instances provide a then() method,
-// must like a Promise, that receives a callback. The callback
-// is called when the module is ready to run, with the module
-// as a parameter. (Like a Promise, it also returns the module
-// so you can use the output of .then(..)).
-Module['then'] = function(func) {
-  // We may already be ready to run code at this time. if
-  // so, just queue a call to the callback.
-  if (Module['calledRun']) {
-    func(Module);
-  } else {
-    // we are not ready to call then() yet. we must call it
-    // at the same time we would call onRuntimeInitialized.
-    var old = Module['onRuntimeInitialized'];
-    Module['onRuntimeInitialized'] = function() {
-      if (old) old();
-      func(Module);
-    };
-  }
-  return Module;
-};
-#endif
-#endif
+var calledRun;
 
 /**
  * @constructor
- * @extends {Error}
  * @this {ExitStatus}
  */
 function ExitStatus(status) {
   this.name = "ExitStatus";
   this.message = "Program terminated with exit(" + status + ")";
   this.status = status;
-};
-ExitStatus.prototype = new Error();
-ExitStatus.prototype.constructor = ExitStatus;
+}
 
-var initialStackTop;
 var calledMain = false;
+
+#if STANDALONE_WASM && MAIN_READS_PARAMS
+var mainArgs = undefined;
+#endif
 
 dependenciesFulfilled = function runCaller() {
   // If run has never been called, and we should call run (INVOKE_RUN is true, and Module.noInitialRun is not false)
-  if (!Module['calledRun']) run();
-  if (!Module['calledRun']) dependenciesFulfilled = runCaller; // try this again later, after new deps are fulfilled
-}
+  if (!calledRun) run();
+  if (!calledRun) dependenciesFulfilled = runCaller; // try this again later, after new deps are fulfilled
+};
 
 #if HAS_MAIN
-Module['callMain'] = function callMain(args) {
+function callMain(args) {
 #if ASSERTIONS
-  assert(runDependencies == 0, 'cannot call main when async dependencies remain! (listen on __ATMAIN__)');
+  assert(runDependencies == 0, 'cannot call main when async dependencies remain! (listen on Module["onRuntimeInitialized"])');
   assert(__ATPRERUN__.length == 0, 'cannot call main when preRun functions remain to be called');
 #endif
 
-  args = args || [];
+#if STANDALONE_WASM
+#if EXPECT_MAIN
+  var entryFunction = Module['__start'];
+#else
+  var entryFunction = Module['__initialize'];
+#endif
+#else
+  var entryFunction = Module['_main'];
+#endif
 
-  ensureInitRuntime();
+#if MAIN_MODULE
+  // Main modules can't tell if they have main() at compile time, since it may
+  // arrive from a dynamic library.
+  if (!entryFunction) return;
+#endif
+
+#if MAIN_READS_PARAMS
+#if STANDALONE_WASM
+  mainArgs = [thisProgram].concat(args)
+#else
+  args = args || [];
 
   var argc = args.length+1;
   var argv = stackAlloc((argc + 1) * {{{ Runtime.POINTER_SIZE }}});
-  HEAP32[argv >> 2] = allocateUTF8OnStack(Module['thisProgram']);
+  HEAP32[argv >> 2] = allocateUTF8OnStack(thisProgram);
   for (var i = 1; i < argc; i++) {
     HEAP32[(argv >> 2) + i] = allocateUTF8OnStack(args[i - 1]);
   }
   HEAP32[(argv >> 2) + argc] = 0;
-
-#if EMTERPRETIFY_ASYNC
-  var initialEmtStackTop = Module['emtStackSave']();
-#endif
+#endif // STANDALONE_WASM
+#else
+  var argc = 0;
+  var argv = 0;
+#endif // MAIN_READS_PARAMS
 
   try {
 #if BENCHMARK
     var start = Date.now();
 #endif
 
+#if ABORT_ON_WASM_EXCEPTIONS
+    // See abortWrapperDepth in preamble.js!
+    abortWrapperDepth += 2; 
+#endif
+
 #if PROXY_TO_PTHREAD
     // User requested the PROXY_TO_PTHREAD option, so call a stub main which pthread_create()s a new thread
     // that will call the user's real main() for the application.
-    var ret = Module['_proxy_main'](argc, argv, 0);
+    var ret = Module['_proxy_main'](argc, argv);
 #else
-    var ret = Module['_main'](argc, argv, 0);
-#endif
+#if STANDALONE_WASM
+    entryFunction();
+    // _start (in crt1.c) will call exit() if main return non-zero.  So we know
+    // that if we get here main returned zero.
+    var ret = 0;
+#else
+    var ret = entryFunction(argc, argv);
+#endif // STANDALONE_WASM
+#endif // PROXY_TO_PTHREAD
 
 #if BENCHMARK
     Module.realPrint('main() took ' + (Date.now() - start) + ' milliseconds');
 #endif
 
-#if EMTERPRETIFY_ASYNC
+    // In PROXY_TO_PTHREAD builds, we should never exit the runtime below, as execution is asynchronously handed
+    // off to a pthread.
+#if !PROXY_TO_PTHREAD
+#if ASYNCIFY
     // if we are saving the stack, then do not call exit, we are not
     // really exiting now, just unwinding the JS stack
-    if (typeof EmterpreterAsync === 'object' && EmterpreterAsync.state !== 1) {
-#endif // EMTERPRETIFY_ASYNC
+    if (!noExitRuntime) {
+#endif // ASYNCIFY
     // if we're not running an evented main loop, it's time to exit
       exit(ret, /* implicit = */ true);
-#if EMTERPRETIFY_ASYNC
+#if ASYNCIFY
     }
-#endif // EMTERPRETIFY_ASYNC
+#endif // ASYNCIFY
   }
   catch(e) {
     if (e instanceof ExitStatus) {
       // exit() throws this once it's done to make sure execution
       // has been stopped completely
       return;
-    } else if (e == 'SimulateInfiniteLoop') {
+    } else if (e == 'unwind') {
       // running an evented main loop, don't immediately exit
-      Module['noExitRuntime'] = true;
-#if EMTERPRETIFY_ASYNC
-      // an infinite loop keeps the C stack around, but the emterpreter stack must be unwound - we do not want to restore the call stack at infinite loop
-      Module['emtStackRestore'](initialEmtStackTop);
-#endif
+      noExitRuntime = true;
       return;
     } else {
       var toLog = e;
@@ -233,10 +213,16 @@ Module['callMain'] = function callMain(args) {
         toLog = [e, e.stack];
       }
       err('exception thrown: ' + toLog);
-      Module['quit'](1, e);
+      quit_(1, e);
     }
+#endif // !PROXY_TO_PTHREAD
   } finally {
     calledMain = true;
+
+#if ABORT_ON_WASM_EXCEPTIONS
+    // See abortWrapperDepth in preamble.js!
+    abortWrapperDepth -= 2; 
+#endif
   }
 }
 #endif // HAS_MAIN
@@ -245,7 +231,7 @@ Module['callMain'] = function callMain(args) {
 
 /** @type {function(Array=)} */
 function run(args) {
-  args = args || Module['arguments'];
+  args = args || arguments_;
 
   if (runDependencies > 0) {
 #if RUNTIME_LOGGING
@@ -261,22 +247,29 @@ function run(args) {
   preRun();
 
   if (runDependencies > 0) return; // a preRun added a dependency, run will be called later
-  if (Module['calledRun']) return; // run may have just been called through dependencies being fulfilled just in this very frame
 
   function doRun() {
-    if (Module['calledRun']) return; // run may have just been called while the async setStatus time below was happening
+    // run may have just been called through dependencies being fulfilled just in this very frame,
+    // or while the async setStatus time below was happening
+    if (calledRun) return;
+    calledRun = true;
     Module['calledRun'] = true;
 
     if (ABORT) return;
 
-    ensureInitRuntime();
+    initRuntime();
 
     preMain();
 
+#if MODULARIZE
+    readyPromiseResolve(Module);
+#endif
+#if expectToReceiveOnModule('onRuntimeInitialized')
     if (Module['onRuntimeInitialized']) Module['onRuntimeInitialized']();
+#endif
 
 #if HAS_MAIN
-    if (Module['_main'] && shouldRunNow) Module['callMain'](args);
+    if (shouldRunNow) callMain(args);
 #else
 #if ASSERTIONS
     assert(!Module['_main'], 'compiled without a main, but one is present. if you added it from JS, use Module["onRuntimeInitialized"]');
@@ -286,6 +279,7 @@ function run(args) {
     postRun();
   }
 
+#if expectToReceiveOnModule('setStatus')
   if (Module['setStatus']) {
     Module['setStatus']('Running...');
     setTimeout(function() {
@@ -294,11 +288,13 @@ function run(args) {
       }, 1);
       doRun();
     }, 1);
-  } else {
+  } else
+#endif
+  {
     doRun();
   }
 #if STACK_OVERFLOW_CHECK
-  checkStackCookie();
+  if (!ABORT) checkStackCookie();
 #endif
 }
 Module['run'] = run;
@@ -314,7 +310,7 @@ function checkUnflushedContent() {
   // builds we do so just for this check, and here we see if there is any
   // content to flush, that is, we check if there would have been
   // something a non-ASSERTIONS build would have not seen.
-  // How we flush the streams depends on whether we are in FILESYSTEM=0
+  // How we flush the streams depends on whether we are in SYSCALLS_REQUIRE_FILESYSTEM=0
   // mode (which has its own special function for this; otherwise, all
   // the code is inside libc)
   var print = out;
@@ -324,38 +320,40 @@ function checkUnflushedContent() {
     has = true;
   }
   try { // it doesn't matter if it fails
-#if FILESYSTEM == 0
+#if SYSCALLS_REQUIRE_FILESYSTEM == 0
     var flush = {{{ '$flush_NO_FILESYSTEM' in addedLibraryItems ? 'flush_NO_FILESYSTEM' : 'null' }}};
+    if (flush) flush();
 #else
     var flush = Module['_fflush'];
-#endif
     if (flush) flush(0);
-#if FILESYSTEM
+#endif
+#if '$FS' in addedLibraryItems && '$TTY' in addedLibraryItems
     // also flush in the JS FS layer
-    var hasFS = {{{ '$FS' in addedLibraryItems ? 'true' : 'false' }}};
-    if (hasFS) {
-      ['stdout', 'stderr'].forEach(function(name) {
-        var info = FS.analyzePath('/dev/' + name);
-        if (!info) return;
-        var stream = info.object;
-        var rdev = stream.rdev;
-        var tty = TTY.ttys[rdev];
-        if (tty && tty.output && tty.output.length) {
-          has = true;
-        }
-      });
-    }
+    ['stdout', 'stderr'].forEach(function(name) {
+      var info = FS.analyzePath('/dev/' + name);
+      if (!info) return;
+      var stream = info.object;
+      var rdev = stream.rdev;
+      var tty = TTY.ttys[rdev];
+      if (tty && tty.output && tty.output.length) {
+        has = true;
+      }
+    });
 #endif
   } catch(e) {}
   out = print;
   err = printErr;
   if (has) {
     warnOnce('stdio streams had content in them that was not flushed. you should set EXIT_RUNTIME to 1 (see the FAQ), or make sure to emit a newline when you printf etc.');
+#if FILESYSTEM == 0 || SYSCALLS_REQUIRE_FILESYSTEM == 0
+    warnOnce('(this may also be due to not including full filesystem support - try building with -s FORCE_FILESYSTEM=1)');
+#endif
   }
 }
 #endif // EXIT_RUNTIME
 #endif // ASSERTIONS
 
+/** @param {boolean|number=} implicit */
 function exit(status, implicit) {
 #if ASSERTIONS
 #if EXIT_RUNTIME == 0
@@ -367,18 +365,26 @@ function exit(status, implicit) {
   // don't need to do anything here and can just leave. if the status is
   // non-zero, though, then we need to report it.
   // (we may have warned about this earlier, if a situation justifies doing so)
-  if (implicit && Module['noExitRuntime'] && status === 0) {
+  if (implicit && noExitRuntime && status === 0) {
     return;
   }
 
-  if (Module['noExitRuntime']) {
+  if (noExitRuntime) {
 #if ASSERTIONS
     // if exit() was called, we may warn the user if the runtime isn't actually being shut down
     if (!implicit) {
 #if EXIT_RUNTIME == 0
-      err('exit(' + status + ') called, but EXIT_RUNTIME is not set, so halting execution but not exiting the runtime or preventing further async execution (build with EXIT_RUNTIME=1, if you want a true shutdown)');
+      var msg = 'program exited (with status: ' + status + '), but EXIT_RUNTIME is not set, so halting execution but not exiting the runtime or preventing further async execution (build with EXIT_RUNTIME=1, if you want a true shutdown)';
+#if MODULARIZE
+      readyPromiseReject(msg);
+#endif // MODULARIZE
+      err(msg);
 #else
-      err('exit(' + status + ') called, but noExitRuntime is set due to an async operation, so halting execution but not exiting the runtime or preventing further async execution (you can use emscripten_force_exit, if you want to force a true shutdown)');
+      var msg = 'program exited (with status: ' + status + '), but noExitRuntime is set due to an async operation, so halting execution but not exiting the runtime or preventing further async execution (you can use emscripten_force_exit, if you want to force a true shutdown)';
+#if MODULARIZE
+      readyPromiseReject(msg);
+#endif // MODULARIZE
+      err(msg);
 #endif // EXIT_RUNTIME
     }
 #endif // ASSERTIONS
@@ -387,60 +393,28 @@ function exit(status, implicit) {
     PThread.terminateAllThreads();
 #endif
 
-    ABORT = true;
     EXITSTATUS = status;
-    STACKTOP = initialStackTop;
 
     exitRuntime();
 
+#if expectToReceiveOnModule('onExit')
     if (Module['onExit']) Module['onExit'](status);
-  }
-
-  Module['quit'](status, new ExitStatus(status));
-}
-
-var abortDecorators = [];
-
-function abort(what) {
-  if (Module['onAbort']) {
-    Module['onAbort'](what);
-  }
-
-#if USE_PTHREADS
-  if (ENVIRONMENT_IS_PTHREAD) console.error('Pthread aborting at ' + new Error().stack);
 #endif
-  if (what !== undefined) {
-    out(what);
-    err(what);
-    what = JSON.stringify(what)
-  } else {
-    what = '';
+
+    ABORT = true;
   }
 
-  ABORT = true;
-  EXITSTATUS = 1;
-
-#if ASSERTIONS == 0
-  throw 'abort(' + what + '). Build with -s ASSERTIONS=1 for more info.';
-#else
-  var extra = '';
-  var output = 'abort(' + what + ') at ' + stackTrace() + extra;
-  if (abortDecorators) {
-    abortDecorators.forEach(function(decorator) {
-      output = decorator(output, what);
-    });
-  }
-  throw output;
-#endif // ASSERTIONS
+  quit_(status, new ExitStatus(status));
 }
-Module['abort'] = abort;
 
+#if expectToReceiveOnModule('preInit')
 if (Module['preInit']) {
   if (typeof Module['preInit'] == 'function') Module['preInit'] = [Module['preInit']];
   while (Module['preInit'].length > 0) {
     Module['preInit'].pop()();
   }
 }
+#endif
 
 #if HAS_MAIN
 // shouldRunNow refers to calling main(), not run().
@@ -449,20 +423,29 @@ var shouldRunNow = true;
 #else
 var shouldRunNow = false;
 #endif
-if (Module['noInitialRun']) {
-  shouldRunNow = false;
-}
+
+#if expectToReceiveOnModule('noInitialRun')
+if (Module['noInitialRun']) shouldRunNow = false;
+#endif
+
 #endif // HAS_MAIN
 
 #if EXIT_RUNTIME == 0
-Module["noExitRuntime"] = true;
+#if USE_PTHREADS
+if (!ENVIRONMENT_IS_PTHREAD) // EXIT_RUNTIME=0 only applies to default behavior of the main browser thread
+#endif
+  noExitRuntime = true;
 #endif
 
 #if USE_PTHREADS
-if (!ENVIRONMENT_IS_PTHREAD) run();
+if (!ENVIRONMENT_IS_PTHREAD) {
+  run();
+} else {
+  PThread.initWorker();
+}
 #else
 run();
-#endif
+#endif // USE_PTHREADS
 
 #if BUILD_AS_WORKER
 
@@ -524,4 +507,8 @@ var workerResponded = false, workerCallbackId = -1;
   }
 })();
 
+#endif
+
+#if STANDALONE_WASM && ASSERTIONS && !WASM_BIGINT
+err('warning: running JS from STANDALONE_WASM without WASM_BIGINT will fail if a syscall with i64 is used (in standalone mode we cannot legalize syscalls)');
 #endif

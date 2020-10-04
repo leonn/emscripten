@@ -47,7 +47,6 @@ void CreateThread(int i, int n)
 {
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 	pthread_attr_setstacksize(&attr, 4*1024);
 	int rc = pthread_create(&thread[i], &attr, ThreadMain, 0);
 	if (rc != 0 || thread[i] == 0)
@@ -56,7 +55,7 @@ void CreateThread(int i, int n)
 }
 
 int threadNum = 0;
-void WaitToJoin()
+EM_BOOL WaitToJoin(double time, void *userData)
 {
 	int threadsRunning = 0;
 	// Join all threads.
@@ -88,8 +87,9 @@ void WaitToJoin()
 #ifdef REPORT_RESULT
 		REPORT_RESULT(counter);
 #endif
-		emscripten_cancel_main_loop();
+		return EM_FALSE;
 	}
+	return EM_TRUE;
 }
 
 int main()
@@ -107,7 +107,7 @@ int main()
 		for(int i = 0; i < NUM_THREADS; ++i)
 			CreateThread(i, threadNum++);
 
-		emscripten_set_main_loop(WaitToJoin, 0, 0);
+		emscripten_set_timeout_loop(WaitToJoin, 100, 0);
 	} else {
 #ifdef REPORT_RESULT
 		REPORT_RESULT(50);
