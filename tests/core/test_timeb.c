@@ -10,7 +10,7 @@
 #include <sys/timeb.h>
 
 int main() {
-  struct timeb tb;
+  timeb tb;
   tb.timezone = 1;
   printf("*%d\n", ftime(&tb));
   assert(tb.time > 10000);

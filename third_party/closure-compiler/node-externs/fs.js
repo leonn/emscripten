@@ -397,15 +397,15 @@ fs.readSync = function(fd, buffer, offset, length, position) {};
 
 /**
  * @param {string} filename
- * @param {string|{encoding:(string|undefined),flag:(string|undefined)}|function(string, (string|nodeBuffer.Buffer))=} encodingOrOptions
- * @param {function(string, (string|nodeBuffer.Buffer))=} callback
+ * @param {string|{encoding:(string|undefined),flag:(string|undefined)}|function(string, (string|buffer.Buffer))=} encodingOrOptions
+ * @param {function(string, (string|buffer.Buffer))=} callback
  */
 fs.readFile = function(filename, encodingOrOptions, callback) {};
 
 /**
  * @param {string} filename
  * @param {string|{encoding:(string|undefined),flag:(string|undefined)}=} encodingOrOptions
- * @return {string|nodeBuffer.Buffer}
+ * @return {string|buffer.Buffer}
  * @nosideeffects
  */
 fs.readFileSync = function(filename, encodingOrOptions) {};

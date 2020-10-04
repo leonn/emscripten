@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
     SDL_Delay(3000);
 #endif
 
-    // Don't quit - we need to reftest the canvas! SDL_Quit();
+    SDL_Quit();
     return 0;
 }
 

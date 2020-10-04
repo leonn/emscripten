@@ -28,12 +28,12 @@ import WebIDL
 # Anything else defaults to legacy mode for backward compatibility.
 CHECKS = os.environ.get('IDL_CHECKS') or 'DEFAULT'
 # DEBUG=1 will print debug info in render_function
-DEBUG = os.environ.get('IDL_VERBOSE') == '1'
+DEBUG = os.environ.get('IDL_VERBOSE') is '1'
 
 if DEBUG: print("Debug print ON, CHECKS=%s" % CHECKS)
 
 # We need to avoid some closure errors on the constructors we define here.
-CONSTRUCTOR_CLOSURE_SUPPRESSIONS = '/** @suppress {undefinedVars, duplicate} @this{Object} */'
+CONSTRUCTOR_CLOSURE_SUPPRESSIONS = '/** @suppress {undefinedVars, duplicate} */'
 
 class Dummy(object):
   def __init__(self, init):
@@ -96,7 +96,6 @@ Module['{name}'] = {name};
 mid_js += ['''
 // Bindings utilities
 
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function WrapperObject() {
 }
 ''']
@@ -104,15 +103,11 @@ function WrapperObject() {
 mid_js += build_constructor('WrapperObject')
 
 mid_js += ['''
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant)
-    @param {*=} __class__ */
 function getCache(__class__) {
   return (__class__ || WrapperObject).__cache__;
 }
 Module['getCache'] = getCache;
 
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant)
-    @param {*=} __class__ */
 function wrapPointer(ptr, __class__) {
   var cache = getCache(__class__);
   var ret = cache[ptr];
@@ -123,7 +118,6 @@ function wrapPointer(ptr, __class__) {
 }
 Module['wrapPointer'] = wrapPointer;
 
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function castObject(obj, __class__) {
   return wrapPointer(obj.ptr, __class__);
 }
@@ -131,7 +125,6 @@ Module['castObject'] = castObject;
 
 Module['NULL'] = wrapPointer(0);
 
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function destroy(obj) {
   if (!obj['__destroy__']) throw 'Error: Cannot destroy object. (Did you create it yourself?)';
   obj['__destroy__']();
@@ -140,19 +133,16 @@ function destroy(obj) {
 }
 Module['destroy'] = destroy;
 
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function compare(obj1, obj2) {
   return obj1.ptr === obj2.ptr;
 }
 Module['compare'] = compare;
 
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function getPointer(obj) {
   return obj.ptr;
 }
 Module['getPointer'] = getPointer;
 
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function getClass(obj) {
   return obj.__class__;
 }
@@ -160,7 +150,6 @@ Module['getClass'] = getClass;
 
 // Converts big (string or array) values into a C-style storage, in temporary space
 
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 var ensureCache = {
   buffer: 0,  // the main buffer of temporary storage
   size: 0,   // the size of buffer
@@ -209,20 +198,19 @@ var ensureCache = {
     return ret;
   },
   copy: function(array, view, offset) {
-    offset >>>= 0;
+    var offsetShifted = offset;
     var bytes = view.BYTES_PER_ELEMENT;
     switch (bytes) {
-      case 2: offset >>>= 1; break;
-      case 4: offset >>>= 2; break;
-      case 8: offset >>>= 3; break;
+      case 2: offsetShifted >>= 1; break;
+      case 4: offsetShifted >>= 2; break;
+      case 8: offsetShifted >>= 3; break;
     }
     for (var i = 0; i < array.length; i++) {
-      view[offset + i] = array[i];
+      view[offsetShifted + i] = array[i];
     }
   },
 };
 
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function ensureString(value) {
   if (typeof value === 'string') {
     var intArray = intArrayFromString(value);
@@ -232,7 +220,6 @@ function ensureString(value) {
   }
   return value;
 }
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function ensureInt8(value) {
   if (typeof value === 'object') {
     var offset = ensureCache.alloc(value, HEAP8);
@@ -241,7 +228,6 @@ function ensureInt8(value) {
   }
   return value;
 }
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function ensureInt16(value) {
   if (typeof value === 'object') {
     var offset = ensureCache.alloc(value, HEAP16);
@@ -250,7 +236,6 @@ function ensureInt16(value) {
   }
   return value;
 }
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function ensureInt32(value) {
   if (typeof value === 'object') {
     var offset = ensureCache.alloc(value, HEAP32);
@@ -259,7 +244,6 @@ function ensureInt32(value) {
   }
   return value;
 }
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function ensureFloat32(value) {
   if (typeof value === 'object') {
     var offset = ensureCache.alloc(value, HEAPF32);
@@ -268,7 +252,6 @@ function ensureFloat32(value) {
   }
   return value;
 }
-/** @suppress {duplicate} (TODO: avoid emitting this multiple times, it is redundant) */
 function ensureFloat64(value) {
   if (typeof value === 'object') {
     var offset = ensureCache.alloc(value, HEAPF64);
@@ -282,14 +265,11 @@ function ensureFloat64(value) {
 
 mid_c += ['''
 // Not using size_t for array indices as the values used by the javascript code are signed.
-
-EM_JS(void, array_bounds_check_error, (size_t idx, size_t size), {
-  throw 'Array index ' + idx + ' out of bounds: [0,' + size + ')';
-});
-
 void array_bounds_check(const int array_size, const int array_idx) {
   if (array_idx < 0 || array_idx >= array_size) {
-    array_bounds_check_error(array_idx, array_size);
+    EM_ASM({
+      throw 'Array index ' + $0 + ' out of bounds: [0,' + $1 + ')';
+    }, array_idx, array_size);
   }
 }
 ''']
@@ -306,10 +286,6 @@ def type_to_c(t, non_pointing=False):
       ret = 'int'
     elif t == 'UnsignedLong':
       ret = 'unsigned int'
-    elif t == 'LongLong':
-      ret = 'long long'
-    elif t == 'UnsignedLongLong':
-      ret = 'unsigned long long'
     elif t == 'Short':
       ret = 'short'
     elif t == 'UnsignedShort':
@@ -361,7 +337,7 @@ def deref_if_nonpointer(m):
 def type_to_cdec(raw):
   name = ret = type_to_c(raw.type.name, non_pointing=True)
   if raw.getExtendedAttribute('Const'): ret = 'const ' + ret
-  if raw.type.name not in interfaces: return ret
+  if name not in interfaces: return ret
   if raw.getExtendedAttribute('Ref'):
     return ret + '&'
   if raw.getExtendedAttribute('Value'):
@@ -385,7 +361,7 @@ def render_function(class_name, func_name, sigs, return_type, non_pointer, copy,
     for i in range(max_args):
       a = all_args[i]
       if isinstance(a, WebIDL.IDLArgument):
-        print(' ', a.identifier.name, a.identifier, a.type, a.optional)
+        print(("  arg%d" % i), a.identifier, a.type, a.optional)
       else:
         print("  arg%d" % i)
 
@@ -400,13 +376,13 @@ def render_function(class_name, func_name, sigs, return_type, non_pointer, copy,
       call_prefix += 'wrapPointer('
       call_postfix += ', ' + return_type + ')'
     elif return_type == 'String':
-      call_prefix += 'UTF8ToString('
+      call_prefix += 'Pointer_stringify('
       call_postfix += ')'
     elif return_type == 'Boolean':
       call_prefix += '!!('
       call_postfix += ')'
 
-  args = [(all_args[i].identifier.name if isinstance(all_args[i], WebIDL.IDLArgument) else ('arg%d' % i)) for i in range(max_args)]
+  args = ['arg%d' % i for i in range(max_args)]
   if not constructor:
     body = '  var self = this.ptr;\n'
     pre_arg = ['self']
@@ -545,7 +521,7 @@ def render_function(class_name, func_name, sigs, return_type, non_pointer, copy,
 
     pre = ''
 
-    basic_return = 'return ' if constructor or return_type != 'Void' else ''
+    basic_return = 'return ' if constructor or return_type is not 'Void' else ''
     return_prefix = basic_return
     return_postfix = ''
     if non_pointer:
@@ -709,7 +685,7 @@ for name in names:
 
     if m.readonly:
       mid_js += [r'''
-    Object.defineProperty(%s.prototype, '%s', { get: %s.prototype.%s });''' % (name, attr, name, get_name)]
+    Object.defineProperty(%s.prototype, '%s', { get: %s.prototype.%s }) ''' % (name, attr, name, get_name)]
     else:
       set_name = 'set_' + attr
       mid_js += [r'''
@@ -725,7 +701,7 @@ for name in names:
                       const=m.getExtendedAttribute('Const'),
                       array_attribute=m.type.isArray())
       mid_js += [r'''
-    Object.defineProperty(%s.prototype, '%s', { get: %s.prototype.%s, set: %s.prototype.%s });''' % (name, attr, name, get_name, name, set_name)]
+    Object.defineProperty(%s.prototype, '%s', { get: %s.prototype.%s, set: %s.prototype.%s }) ''' % (name, attr, name, get_name, name, set_name)]
 
 
   if not interface.getExtendedAttribute('NoDelete'):
@@ -779,13 +755,12 @@ for name, enum in enums.items():
       raise Exception("Illegal enum value %s" % value)
 
 mid_c += ['\n}\n\n']
-if len(deferred_js):
-  mid_js += ['''
+mid_js += ['''
 (function() {
   function setupEnums() {
     %s
   }
-  if (runtimeInitialized) setupEnums();
+  if (Module['calledRun']) setupEnums();
   else addOnPreMain(setupEnums);
 })();
 ''' % '\n    '.join(deferred_js)]

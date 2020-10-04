@@ -1,60 +1,16 @@
-/**
- * @license
- * Copyright 2015 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
+// Copyright 2015 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
 
 mergeInto(LibraryManager.library, {
-  $reallyNegative: function(x) {
-    return x < 0 || (x === 0 && (1/x) === -Infinity);
-  },
-
-  // Converts a value we have as signed, into an unsigned value. For
-  // example, -1 in int32 would be a very large number as unsigned.
-  $unSign: function(value, bits) {
-    if (value >= 0) {
-      return value;
-    }
-    // Need some trickery, since if bits == 32, we are right at the limit of the
-    // bits JS uses in bitshifts
-    return bits <= 32 ? 2*Math.abs(1 << (bits-1)) + value
-                      : Math.pow(2, bits)         + value;
-  },
-
-  // Converts a value we have as unsigned, into a signed value. For
-  // example, 200 in a uint8 would be a negative number.
-  $reSign: function(value, bits) {
-    if (value <= 0) {
-      return value;
-    }
-    var half = bits <= 32 ? Math.abs(1 << (bits-1)) // abs is needed if bits == 32
-                          : Math.pow(2, bits-1);
-    // for huge values, we can hit the precision limit and always get true here.
-    // so don't do that but, in general there is no perfect solution here. With
-    // 64-bit ints, we get rounding and errors
-    // TODO: In i64 mode 1, resign the two parts separately and safely
-    if (value >= half && (bits <= 32 || value > half)) {
-      // Cannot bitshift half, as it may be at the limit of the bits JS uses in
-      // bitshifts
-      value = -2*half + value;
-    }
-    return value;
-  },
-
   // Performs printf-style formatting.
   //   format: A pointer to the format string.
   //   varargs: A pointer to the start of the arguments list.
   // Returns the resulting string string as a character array.
-  $formatString__deps: ['$reallyNegative', '$convertI32PairToI53', '$convertU32PairToI53',
-                        '$reSign', '$unSign'
-#if MINIMAL_RUNTIME
-    , '$intArrayFromString'
-#endif
-  ],
-  $formatString: function(format, varargs) {
-#if ASSERTIONS
+  _formatString__deps: ['strlen', '_reallyNegative'],
+  _formatString: function(format, varargs) {
     assert((varargs & 3) === 0);
-#endif
     var textIndex = format;
     var argIndex = varargs;
     // This must be called before reading a double or i64 vararg. It will bump the pointer properly.
@@ -63,15 +19,11 @@ mergeInto(LibraryManager.library, {
       if (type === 'double' || type === 'i64') {
         // move so the load is aligned
         if (ptr & 7) {
-#if ASSERTIONS
           assert((ptr & 7) === 4);
-#endif
           ptr += 4;
         }
       } else {
-#if ASSERTIONS
         assert((ptr & 3) === 0);
-#endif
       }
       return ptr;
     }
@@ -88,9 +40,7 @@ mergeInto(LibraryManager.library, {
                {{{ makeGetValue('argIndex', 4, 'i32', undefined, undefined, true, 4) }}}];
         argIndex += 8;
       } else {
-#if ASSERTIONS
         assert((argIndex & 3) === 0);
-#endif
         type = 'i32'; // varargs are always i32, i64, or double
         ret = {{{ makeGetValue('argIndex', 0, 'i32', undefined, undefined, true) }}};
         argIndex += 4;
@@ -224,10 +174,13 @@ mergeInto(LibraryManager.library, {
             var signed = next == {{{ charCode('d') }}} || next == {{{ charCode('i') }}};
             argSize = argSize || 4;
             currArg = getNextArg('i' + (argSize * 8));
+#if PRECISE_I64_MATH
+            var origArg = currArg;
+#endif
             var argText;
             // Flatten i64-1 [low, high] into a (slightly rounded) double
             if (argSize == 8) {
-              currArg = next == {{{ charCode('u') }}} ? convertU32PairToI53(currArg[0], currArg[1]) : convertI32PairToI53(currArg[0], currArg[1]);
+              currArg = makeBigInt(currArg[0], currArg[1], next == {{{ charCode('u') }}});
             }
             // Truncate to requested size.
             if (argSize <= 4) {
@@ -238,14 +191,32 @@ mergeInto(LibraryManager.library, {
             var currAbsArg = Math.abs(currArg);
             var prefix = '';
             if (next == {{{ charCode('d') }}} || next == {{{ charCode('i') }}}) {
+#if PRECISE_I64_MATH
+              if (argSize == 8 && typeof i64Math === 'object') argText = i64Math.stringify(origArg[0], origArg[1], null); else
+#endif
               argText = reSign(currArg, 8 * argSize, 1).toString(10);
             } else if (next == {{{ charCode('u') }}}) {
+#if PRECISE_I64_MATH
+              if (argSize == 8 && typeof i64Math === 'object') argText = i64Math.stringify(origArg[0], origArg[1], true); else
+#endif
               argText = unSign(currArg, 8 * argSize, 1).toString(10);
               currArg = Math.abs(currArg);
             } else if (next == {{{ charCode('o') }}}) {
               argText = (flagAlternative ? '0' : '') + currAbsArg.toString(8);
             } else if (next == {{{ charCode('x') }}} || next == {{{ charCode('X') }}}) {
               prefix = (flagAlternative && currArg != 0) ? '0x' : '';
+#if PRECISE_I64_MATH
+              if (argSize == 8 && typeof i64Math === 'object') {
+                if (origArg[1]) {
+                  argText = (origArg[1]>>>0).toString(16);
+                  var lower = (origArg[0]>>>0).toString(16);
+                  while (lower.length < 8) lower = '0' + lower;
+                  argText += lower;
+                } else {
+                  argText = (origArg[0]>>>0).toString(16);
+                }
+              } else
+#endif
               if (currArg < 0) {
                 // Represent negative numbers in hex as 2's complement.
                 currArg = -currArg;
@@ -350,7 +321,7 @@ mergeInto(LibraryManager.library, {
                 }
               } else if (next == {{{ charCode('f') }}} || next == {{{ charCode('F') }}}) {
                 argText = currArg.toFixed(effectivePrecision);
-                if (currArg === 0 && reallyNegative(currArg)) {
+                if (currArg === 0 && __reallyNegative(currArg)) {
                   argText = '-' + argText;
                 }
               }
@@ -468,16 +439,12 @@ mergeInto(LibraryManager.library, {
   },
 
   // printf/puts implementations for when musl is not pulled in - very partial. useful for tests, and when bootstrapping structInfo
-  printf__deps: ['$formatString'
-#if MINIMAL_RUNTIME
-    , '$intArrayToString'
-#endif
-    ],
+  printf__deps: ['_formatString'],
   printf: function(format, varargs) {
     // int printf(const char *restrict format, ...);
     // http://pubs.opengroup.org/onlinepubs/000095399/functions/printf.html
     // extra effort to support printf, even without a filesystem. very partial, very hackish
-    var result = formatString(format, varargs);
+    var result = __formatString(format, varargs);
     var string = intArrayToString(result);
     if (string[string.length-1] === '\n') string = string.substr(0, string.length-1); // remove a final \n, as Module.print will do that
     out(string);
@@ -485,7 +452,7 @@ mergeInto(LibraryManager.library, {
   },
   puts: function(s) {
     // extra effort to support puts, even without a filesystem. very partial, very hackish
-    var result = UTF8ToString(s);
+    var result = Pointer_stringify(s);
     var string = result.substr(0);
     if (string[string.length-1] === '\n') string = string.substr(0, string.length-1); // remove a final \n, as Module.print will do that
     out(string);

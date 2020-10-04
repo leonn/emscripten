@@ -9,7 +9,7 @@
 
 #if __cplusplus < 201103L
 #error Including <emscripten/wire.h> requires building with -std=c++11 or newer!
-#endif
+#else
 
 // A value moving between JavaScript and C++ has three representations:
 // - The original JS value: a String
@@ -43,7 +43,7 @@ namespace emscripten {
         // We don't need the full std::type_info implementation.  We
         // just need a unique identifier per type and polymorphic type
         // identification.
-
+        
         template<typename T>
         struct CanonicalizedID {
             static char c;
@@ -64,7 +64,7 @@ namespace emscripten {
         struct LightTypeID {
             static constexpr TYPEID get() {
                 typedef typename Canonicalized<T>::type C;
-                if(has_unbound_type_names) {
+                if(has_unbound_type_names || std::is_polymorphic<C>::value) {
 #if __has_feature(cxx_rtti)
                     return &typeid(T);
 #else
@@ -72,6 +72,8 @@ namespace emscripten {
                         "Unbound type names are illegal with RTTI disabled. "
                         "Either add -DEMSCRIPTEN_HAS_UNBOUND_TYPE_NAMES=0 to or remove -fno-rtti "
                         "from the compiler arguments");
+                    static_assert(!std::is_polymorphic<C>::value,
+                        "Canonicalized<T>::type being polymorphic is illegal with RTTI disabled");
 #endif
                 }
 
@@ -82,7 +84,7 @@ namespace emscripten {
         template<typename T>
         constexpr TYPEID getLightTypeID(const T& value) {
             typedef typename Canonicalized<T>::type C;
-            if(has_unbound_type_names) {
+            if(has_unbound_type_names || std::is_polymorphic<C>::value) {
 #if __has_feature(cxx_rtti)
                 return &typeid(value);
 #else
@@ -90,14 +92,14 @@ namespace emscripten {
                     "Unbound type names are illegal with RTTI disabled. "
                     "Either add -DEMSCRIPTEN_HAS_UNBOUND_TYPE_NAMES=0 to or remove -fno-rtti "
                     "from the compiler arguments");
+                static_assert(!std::is_polymorphic<C>::value,
+                    "Canonicalized<T>::type being polymorphic is illegal with RTTI disabled");
 #endif
             }
             return LightTypeID<T>::get();
         }
 
-        // The second typename is an unused stub so it's possible to
-        // specialize groups of classes via SFINAE.
-        template<typename T, typename = void>
+        template<typename T>
         struct TypeID {
             static constexpr TYPEID get() {
                 return LightTypeID<T>::get();
@@ -126,7 +128,7 @@ namespace emscripten {
                 return LightTypeID<T*>::get();
             }
         };
-
+        
         // ExecutePolicies<>
 
         template<typename... Policies>
@@ -139,7 +141,7 @@ namespace emscripten {
                 typedef T type;
             };
         };
-
+        
         template<typename Policy, typename... Remaining>
         struct ExecutePolicies<Policy, Remaining...> {
             template<typename T, int Index>
@@ -239,9 +241,7 @@ namespace emscripten {
 
         // BindingType<T>
 
-        // The second typename is an unused stub so it's possible to
-        // specialize groups of classes via SFINAE.
-        template<typename T, typename = void>
+        template<typename T>
         struct BindingType;
 
 #define EMSCRIPTEN_DEFINE_NATIVE_BINDING_TYPE(type)                 \
@@ -284,22 +284,37 @@ namespace emscripten {
             }
         };
 
-        template<typename T>
-        struct BindingType<std::basic_string<T>> {
-            using String = std::basic_string<T>;
-            static_assert(std::is_trivially_copyable<T>::value, "basic_string elements are memcpy'd");
+        template<>
+        struct BindingType<std::string> {
             typedef struct {
                 size_t length;
-                T data[1]; // trailing data
+                char data[1]; // trailing data
             }* WireType;
-            static WireType toWireType(const String& v) {
-                WireType wt = (WireType)malloc(sizeof(size_t) + v.length() * sizeof(T));
+            static WireType toWireType(const std::string& v) {
+                WireType wt = (WireType)malloc(sizeof(size_t) + v.length());
                 wt->length = v.length();
-                memcpy(wt->data, v.data(), v.length() * sizeof(T));
+                memcpy(wt->data, v.data(), v.length());
                 return wt;
             }
-            static String fromWireType(WireType v) {
-                return String(v->data, v->length);
+            static std::string fromWireType(WireType v) {
+                return std::string(v->data, v->length);
+            }
+        };
+
+        template<>
+        struct BindingType<std::wstring> {
+            typedef struct {
+                size_t length;
+                wchar_t data[1]; // trailing data
+            }* WireType;
+            static WireType toWireType(const std::wstring& v) {
+                WireType wt = (WireType)malloc(sizeof(size_t) + v.length() * sizeof(wchar_t));
+                wt->length = v.length();
+                wmemcpy(wt->data, v.data(), v.length());
+                return wt;
+            }
+            static std::wstring fromWireType(WireType v) {
+                return std::wstring(v->data, v->length);
             }
         };
 
@@ -381,7 +396,7 @@ namespace emscripten {
         };
 
         // catch-all generic binding
-        template<typename T, typename>
+        template<typename T>
         struct BindingType : std::conditional<
             std::is_enum<T>::value,
             EnumBindingType<T>,
@@ -442,3 +457,5 @@ namespace emscripten {
         };
     }
 }
+
+#endif // ~C++11 version check

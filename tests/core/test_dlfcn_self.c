@@ -11,18 +11,14 @@
 
 int EMSCRIPTEN_KEEPALIVE global = 123;
 
-EMSCRIPTEN_KEEPALIVE void foo(int x) {
+extern "C" EMSCRIPTEN_KEEPALIVE void foo(int x) {
         printf("%d\n", x);
 }
 
-EMSCRIPTEN_KEEPALIVE void repeatable() {
+extern "C" EMSCRIPTEN_KEEPALIVE void repeatable() {
         void* self = dlopen(NULL, RTLD_LAZY);
         int* global_ptr = (int*)dlsym(self, "global");
         void (*foo_ptr)(int) = (void (*)(int))dlsym(self, "foo");
-        if (!foo_ptr) {
-          printf("dlsym failed: %s\n", dlerror());
-          return;
-        }
         foo_ptr(*global_ptr);
         dlclose(self);
 }

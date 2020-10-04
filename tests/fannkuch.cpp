@@ -149,7 +149,9 @@ fannkuch(int n)
    return maxflips;
 }
 
-int main(int argc, char **argv) {
+int
+main(int argc, char **argv)
+{
    int n = argc > 1 ? atoi(argv[1]) : 0;
 
    if (n < 1) {

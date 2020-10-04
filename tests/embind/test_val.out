@@ -143,19 +143,6 @@ pass
 pass
 pass
 test:
-bool operator!()
-pass
-pass
-pass
-pass
-pass
-pass
-pass
-pass
-pass
-pass
-pass
-test:
 template<typename... Args> val new_(Args&&... args)
 pass
 pass
@@ -203,13 +190,6 @@ pass
 pass
 pass
 pass
-pass
-pass
-pass
-pass
-pass
-pass
-pass
 test:
 bool instanceof(const val& v)
 pass
@@ -231,13 +211,6 @@ pass
 pass
 pass
 pass
-pass
-pass
-pass
-pass
-pass
-test:
-void throw_() const
 pass
 pass
 pass

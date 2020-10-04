@@ -102,3 +102,8 @@ module.children;
  * @type {Object.<string,*>}
  */
 var global = {};
+
+/**
+ * @type {buffer.Buffer}
+ */
+var Buffer;

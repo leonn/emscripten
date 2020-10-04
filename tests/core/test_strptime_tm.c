@@ -11,7 +11,7 @@
 
 void ReadMonth(const char *month)
 {
-    struct tm value = {0};
+    tm value = {0};
     if(strptime(month, "%b", &value))
     {
         printf("%s: %d\n", month, value.tm_mon);

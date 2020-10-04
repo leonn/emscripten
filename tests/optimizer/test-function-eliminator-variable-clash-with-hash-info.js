@@ -26,6 +26,6 @@ function d()
   return;
 }
 
-})(asmGlobalArg, asmLibraryArg, buffer);
+})(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
 
 // {}

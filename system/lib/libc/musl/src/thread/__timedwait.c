@@ -15,7 +15,9 @@
 int __pthread_setcancelstate(int, int *);
 int __clock_gettime(clockid_t, struct timespec *);
 
+
 #ifdef __EMSCRIPTEN__
+double _pthread_msecs_until(const struct timespec *restrict at);
 int _pthread_isduecanceled(struct pthread *pthread_ptr);
 #endif
 
@@ -40,10 +42,8 @@ int __timedwait_cp(volatile int *addr, int val,
 	}
 
 #ifdef __EMSCRIPTEN__
-	double msecsToSleep = top ? (top->tv_sec * 1000 + top->tv_nsec / 1000000.0) : INFINITY;
-	int is_main_thread = emscripten_is_main_browser_thread();
-	if (is_main_thread || pthread_self()->cancelasync == PTHREAD_CANCEL_ASYNCHRONOUS) {
-		double sleepUntilTime = emscripten_get_now() + msecsToSleep;
+	if (1 || pthread_self()->cancelasync == PTHREAD_CANCEL_ASYNCHRONOUS) {
+		int is_main_thread = emscripten_is_main_runtime_thread();
 		do {
 			if (_pthread_isduecanceled(pthread_self())) {
 				// Emscripten-specific return value: The wait was canceled by user calling
@@ -54,7 +54,7 @@ int __timedwait_cp(volatile int *addr, int val,
 			// Assist other threads by executing proxied operations that are effectively singlethreaded.
 			if (is_main_thread) emscripten_main_thread_process_queued_calls();
 			// Must wait in slices in case this thread is cancelled in between.
-			double waitMsecs = sleepUntilTime - emscripten_get_now();
+			double waitMsecs = at ? _pthread_msecs_until(at) : INFINITY;
 			if (waitMsecs <= 0) {
 				r = ETIMEDOUT;
 				break;
@@ -65,7 +65,8 @@ int __timedwait_cp(volatile int *addr, int val,
 		} while(r == ETIMEDOUT);
 	} else {
 		// Can wait in one go.
-		r = -emscripten_futex_wait((void*)addr, val, msecsToSleep);
+		double waitMsecs = at ? _pthread_msecs_until(at) : INFINITY;
+		r = -emscripten_futex_wait((void*)addr, val, waitMsecs);
 	}
 #else
 	r = -__syscall_cp(SYS_futex, addr, FUTEX_WAIT|priv, val, top);

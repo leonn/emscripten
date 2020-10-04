@@ -11,4 +11,4 @@ var asm = (function(global, env, buffer) {
   a();
   return;
  }
-})(asmGlobalArg, asmLibraryArg, buffer);
+})(Module.asmGlobalArg, Module.asmLibraryArg, buffer);

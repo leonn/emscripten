@@ -1,8 +1,9 @@
 //===-------------------------- ios.cpp -----------------------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
@@ -84,7 +85,7 @@ ios_base::failure::failure(const char* msg, const error_code& ec)
 {
 }
 
-ios_base::failure::~failure() _NOEXCEPT
+ios_base::failure::~failure() throw()
 {
 }
 
@@ -266,9 +267,10 @@ ios_base::clear(iostate state)
         __rdstate_ = state;
     else
         __rdstate_ = state | badbit;
-
+#ifndef _LIBCPP_NO_EXCEPTIONS
     if (((state | (__rdbuf_ ? goodbit : badbit)) & __exceptions_) != 0)
-        __throw_failure("ios_base::clear");
+        throw failure("ios_base::clear");
+#endif  // _LIBCPP_NO_EXCEPTIONS
 }
 
 // init
@@ -308,27 +310,35 @@ ios_base::copyfmt(const ios_base& rhs)
     {
         size_t newesize = sizeof(event_callback) * rhs.__event_size_;
         new_callbacks.reset(static_cast<event_callback*>(malloc(newesize)));
+#ifndef _LIBCPP_NO_EXCEPTIONS
         if (!new_callbacks)
-            __throw_bad_alloc();
+            throw bad_alloc();
+#endif  // _LIBCPP_NO_EXCEPTIONS
 
         size_t newisize = sizeof(int) * rhs.__event_size_;
         new_ints.reset(static_cast<int *>(malloc(newisize)));
+#ifndef _LIBCPP_NO_EXCEPTIONS
         if (!new_ints)
-            __throw_bad_alloc();
+            throw bad_alloc();
+#endif  // _LIBCPP_NO_EXCEPTIONS
     }
     if (__iarray_cap_ < rhs.__iarray_size_)
     {
         size_t newsize = sizeof(long) * rhs.__iarray_size_;
         new_longs.reset(static_cast<long*>(malloc(newsize)));
+#ifndef _LIBCPP_NO_EXCEPTIONS
         if (!new_longs)
-            __throw_bad_alloc();
+            throw bad_alloc();
+#endif  // _LIBCPP_NO_EXCEPTIONS
     }
     if (__parray_cap_ < rhs.__parray_size_)
     {
         size_t newsize = sizeof(void*) * rhs.__parray_size_;
         new_pointers.reset(static_cast<void**>(malloc(newsize)));
+#ifndef _LIBCPP_NO_EXCEPTIONS
         if (!new_pointers)
-            __throw_bad_alloc();
+            throw bad_alloc();
+#endif  // _LIBCPP_NO_EXCEPTIONS
     }
     // Got everything we need.  Copy everything but __rdstate_, __rdbuf_ and __exceptions_
     __fmtflags_ = rhs.__fmtflags_;

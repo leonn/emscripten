@@ -174,7 +174,8 @@ void calculateVerticesAndNormals_x87(
   }
 }
 
-int main(int argc, char **argv) {
+int main (int argc, char*argv[])
+{
   int N, M;
   int arg = argc > 1 ? argv[1][0] - '0' : 3;
   switch(arg) {
@@ -211,7 +212,5 @@ int main(int argc, char **argv) {
   }
 
   printf("blah=%f\n", sum);
-
-  return 0;
 }
 

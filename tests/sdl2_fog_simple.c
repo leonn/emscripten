@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
     // Now we can delete the OpenGL texture and close down SDL
     glDeleteTextures( 1, &texture );
 
-    // Don't quit - we need to reftest the canvas! SDL_Quit();
+    SDL_Quit();
 
     return 0;
 }

@@ -8,11 +8,11 @@
 int main() {
 #ifdef DIRECT
   EM_ASM({
-    out('|' + ALLOC_STACK + '|');
+    out('|' + ALLOC_DYNAMIC + '|');
   });
 #else
   EM_ASM({
-    out('|' + Module['ALLOC_STACK'] + '|');
+    out('|' + Module['ALLOC_DYNAMIC'] + '|');
   });
 #endif
 }

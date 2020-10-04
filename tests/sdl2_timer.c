@@ -11,9 +11,6 @@
 #include <SDL/SDL.h>
 
 Uint32 SDLCALL report_result(Uint32 interval, void *param) {
-  static int reported = 0;
-  if (reported) return 0;
-  reported = 1;
   SDL_Quit();
   int result = *(int *)param;
   printf("%p %d\n", param, result);
@@ -32,7 +29,6 @@ int main(int argc, char** argv) {
   if (ticks2 < ticks1 + 4) {
     printf("not enough ticks from busy-wait\n");
     REPORT_RESULT(9);
-    return 0;
   }
 
   int badret = 4;

@@ -1,9 +1,10 @@
 // -*- C++ -*-
 //===------------------------- hash_set ------------------------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
@@ -207,9 +208,10 @@ template <class Value, class Hash, class Pred, class Alloc>
 
 namespace __gnu_cxx {
 
+using namespace std;
 
-template <class _Value, class _Hash = hash<_Value>, class _Pred = std::equal_to<_Value>,
-          class _Alloc = std::allocator<_Value> >
+template <class _Value, class _Hash = hash<_Value>, class _Pred = equal_to<_Value>,
+          class _Alloc = allocator<_Value> >
 class _LIBCPP_TEMPLATE_VIS hash_set
 {
 public:
@@ -223,7 +225,7 @@ public:
     typedef const value_type&                                          const_reference;
 
 private:
-    typedef std::__hash_table<value_type, hasher, key_equal, allocator_type> __table;
+    typedef __hash_table<value_type, hasher, key_equal, allocator_type> __table;
 
     __table __table_;
 
@@ -237,7 +239,7 @@ public:
     typedef typename __table::const_iterator       const_iterator;
 
     _LIBCPP_INLINE_VISIBILITY
-    hash_set() { }
+    hash_set() {__table_.rehash(193);}
     explicit hash_set(size_type __n, const hasher& __hf = hasher(),
                            const key_equal& __eql = key_equal());
     hash_set(size_type __n, const hasher& __hf, const key_equal& __eql,
@@ -275,7 +277,7 @@ public:
     const_iterator end()    const {return __table_.end();}
 
     _LIBCPP_INLINE_VISIBILITY
-    std::pair<iterator, bool> insert(const value_type& __x)
+    pair<iterator, bool> insert(const value_type& __x)
         {return __table_.__insert_unique(__x);}
     _LIBCPP_INLINE_VISIBILITY
     iterator insert(const_iterator, const value_type& __x) {return insert(__x).first;}
@@ -308,10 +310,10 @@ public:
     _LIBCPP_INLINE_VISIBILITY
     size_type count(const key_type& __k) const {return __table_.__count_unique(__k);}
     _LIBCPP_INLINE_VISIBILITY
-    std::pair<iterator, iterator>             equal_range(const key_type& __k)
+    pair<iterator, iterator>             equal_range(const key_type& __k)
         {return __table_.__equal_range_unique(__k);}
     _LIBCPP_INLINE_VISIBILITY
-    std::pair<const_iterator, const_iterator> equal_range(const key_type& __k) const
+    pair<const_iterator, const_iterator> equal_range(const key_type& __k) const
         {return __table_.__equal_range_unique(__k);}
 
     _LIBCPP_INLINE_VISIBILITY
@@ -347,6 +349,7 @@ template <class _InputIterator>
 hash_set<_Value, _Hash, _Pred, _Alloc>::hash_set(
         _InputIterator __first, _InputIterator __last)
 {
+    __table_.rehash(193);
     insert(__first, __last);
 }
 
@@ -429,8 +432,8 @@ operator!=(const hash_set<_Value, _Hash, _Pred, _Alloc>& __x,
     return !(__x == __y);
 }
 
-template <class _Value, class _Hash = hash<_Value>, class _Pred = std::equal_to<_Value>,
-          class _Alloc = std::allocator<_Value> >
+template <class _Value, class _Hash = hash<_Value>, class _Pred = equal_to<_Value>,
+          class _Alloc = allocator<_Value> >
 class _LIBCPP_TEMPLATE_VIS hash_multiset
 {
 public:
@@ -444,7 +447,7 @@ public:
     typedef const value_type&                                          const_reference;
 
 private:
-    typedef std::__hash_table<value_type, hasher, key_equal, allocator_type> __table;
+    typedef __hash_table<value_type, hasher, key_equal, allocator_type> __table;
 
     __table __table_;
 
@@ -458,7 +461,7 @@ public:
     typedef typename __table::const_iterator       const_iterator;
 
     _LIBCPP_INLINE_VISIBILITY
-    hash_multiset() { }
+    hash_multiset() {__table_.rehash(193);}
     explicit hash_multiset(size_type __n, const hasher& __hf = hasher(),
                                 const key_equal& __eql = key_equal());
     hash_multiset(size_type __n, const hasher& __hf,
@@ -528,10 +531,10 @@ public:
     _LIBCPP_INLINE_VISIBILITY
     size_type count(const key_type& __k) const {return __table_.__count_multi(__k);}
     _LIBCPP_INLINE_VISIBILITY
-    std::pair<iterator, iterator>             equal_range(const key_type& __k)
+    pair<iterator, iterator>             equal_range(const key_type& __k)
         {return __table_.__equal_range_multi(__k);}
     _LIBCPP_INLINE_VISIBILITY
-    std::pair<const_iterator, const_iterator> equal_range(const key_type& __k) const
+    pair<const_iterator, const_iterator> equal_range(const key_type& __k) const
         {return __table_.__equal_range_multi(__k);}
 
     _LIBCPP_INLINE_VISIBILITY
@@ -568,6 +571,7 @@ template <class _InputIterator>
 hash_multiset<_Value, _Hash, _Pred, _Alloc>::hash_multiset(
         _InputIterator __first, _InputIterator __last)
 {
+    __table_.rehash(193);
     insert(__first, __last);
 }
 
@@ -607,7 +611,7 @@ template <class _InputIterator>
 inline
 void
 hash_multiset<_Value, _Hash, _Pred, _Alloc>::insert(_InputIterator __first,
-                                                    _InputIterator __last)
+                                                         _InputIterator __last)
 {
     for (; __first != __last; ++__first)
         __table_.__insert_multi(*__first);
@@ -631,7 +635,7 @@ operator==(const hash_multiset<_Value, _Hash, _Pred, _Alloc>& __x,
         return false;
     typedef typename hash_multiset<_Value, _Hash, _Pred, _Alloc>::const_iterator
                                                                  const_iterator;
-    typedef std::pair<const_iterator, const_iterator> _EqRng;
+    typedef pair<const_iterator, const_iterator> _EqRng;
     for (const_iterator __i = __x.begin(), __ex = __x.end(); __i != __ex;)
     {
         _EqRng __xeq = __x.equal_range(*__i);

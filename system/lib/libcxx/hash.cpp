@@ -1,8 +1,9 @@
 //===-------------------------- hash.cpp ----------------------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
@@ -153,8 +154,12 @@ inline _LIBCPP_INLINE_VISIBILITY
 typename enable_if<_Sz == 4, void>::type
 __check_for_overflow(size_t N)
 {
+#ifndef _LIBCPP_NO_EXCEPTIONS
     if (N > 0xFFFFFFFB)
-        __throw_overflow_error("__next_prime overflow");
+        throw overflow_error("__next_prime overflow");
+#else
+    (void)N;
+#endif
 }
 
 template <size_t _Sz = sizeof(size_t)>
@@ -162,8 +167,12 @@ inline _LIBCPP_INLINE_VISIBILITY
 typename enable_if<_Sz == 8, void>::type
 __check_for_overflow(size_t N)
 {
+#ifndef _LIBCPP_NO_EXCEPTIONS
     if (N > 0xFFFFFFFFFFFFFFC5ull)
-        __throw_overflow_error("__next_prime overflow");
+        throw overflow_error("__next_prime overflow");
+#else
+    (void)N;
+#endif
 }
 
 size_t

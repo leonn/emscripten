@@ -29,22 +29,22 @@ class Listener(threading.Thread):
     global ports
     port = ports[0]
     ports = ports[1:]
-    print('listener binding to ', port)
+    print 'listener binding to ', port
     s.bind(('127.0.0.1', port))
     s.listen(1)
-    print('listener', port, 'waiting for connection')
+    print 'listener', port, 'waiting for connection'
     conn, addr = s.accept()
     self.conn = conn
     while True:
       time.sleep(0.5)
-      print('listener', port, 'waiting for data')
+      print 'listener', port, 'waiting for data'
       data = conn.recv(20 * 1024)
       if not data:
         continue
       while not self.other.conn:
-        print('listener', port, 'waiting for other connection in order to send data')
+        print 'listener', port, 'waiting for other connection in order to send data'
         time.sleep(1)
-      print('listener', port, 'sending data', len(data))
+      print 'listener', port, 'sending data', len(data)
       self.other.conn.send(data)
 
 

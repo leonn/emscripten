@@ -1,30 +1,19 @@
 //===--------------------- cxa_exception_storage.cpp ----------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
 //
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
 //
+//  
 //  This file implements the storage for the "Caught Exception Stack"
-//  https://itanium-cxx-abi.github.io/cxx-abi/abi-eh.html#cxx-exc-stack
-//
+//  http://www.codesourcery.com/public/cxx-abi/abi-eh.html (section 2.2.2)
+//  
 //===----------------------------------------------------------------------===//
 
-#include "cxa_exception.h"
+#include "cxa_exception.hpp"
 
-#include <__threading_support>
-
-#if defined(_LIBCXXABI_HAS_NO_THREADS)
-
-namespace __cxxabiv1 {
-extern "C" {
-    static __cxa_eh_globals eh_globals;
-    __cxa_eh_globals *__cxa_get_globals() { return &eh_globals; }
-    __cxa_eh_globals *__cxa_get_globals_fast() { return &eh_globals; }
-    }
-}
-
-#elif defined(HAS_THREAD_LOCAL)
+#ifdef HAS_THREAD_LOCAL
 
 namespace __cxxabiv1 {
 
@@ -43,47 +32,44 @@ extern "C" {
 
 #else
 
+#include <pthread.h>
+#include <cstdlib>          // for calloc, free
 #include "abort_message.h"
-#include "fallback_malloc.h"
 
-#if defined(__ELF__) && defined(_LIBCXXABI_LINK_PTHREAD_LIB)
-#pragma comment(lib, "pthread")
-#endif
-
-//  In general, we treat all threading errors as fatal.
+//  In general, we treat all pthread errors as fatal.
 //  We cannot call std::terminate() because that will in turn
 //  call __cxa_get_globals() and cause infinite recursion.
 
 namespace __cxxabiv1 {
 namespace {
-    std::__libcpp_tls_key key_;
-    std::__libcpp_exec_once_flag flag_ = _LIBCPP_EXEC_ONCE_INITIALIZER;
+    pthread_key_t  key_;
+    pthread_once_t flag_ = PTHREAD_ONCE_INIT;
 
-    void _LIBCPP_TLS_DESTRUCTOR_CC destruct_ (void *p) {
-        __free_with_fallback ( p );
-        if ( 0 != std::__libcpp_tls_set ( key_, NULL ) )
+    void destruct_ (void *p) {
+        std::free ( p );
+        if ( 0 != ::pthread_setspecific ( key_, NULL ) ) 
             abort_message("cannot zero out thread value for __cxa_get_globals()");
         }
 
     void construct_ () {
-        if ( 0 != std::__libcpp_tls_create ( &key_, destruct_ ) )
-            abort_message("cannot create thread specific key for __cxa_get_globals()");
+        if ( 0 != pthread_key_create ( &key_, destruct_ ) )
+            abort_message("cannot create pthread key for __cxa_get_globals()");
         }
-}
+}   
 
 extern "C" {
     __cxa_eh_globals * __cxa_get_globals () {
     //  Try to get the globals for this thread
         __cxa_eh_globals* retVal = __cxa_get_globals_fast ();
-
+    
     //  If this is the first time we've been asked for these globals, create them
         if ( NULL == retVal ) {
             retVal = static_cast<__cxa_eh_globals*>
-                        (__calloc_with_fallback (1, sizeof (__cxa_eh_globals)));
+                        (std::calloc (1, sizeof (__cxa_eh_globals)));
             if ( NULL == retVal )
                 abort_message("cannot allocate __cxa_eh_globals");
-            if ( 0 != std::__libcpp_tls_set ( key_, retVal ) )
-               abort_message("std::__libcpp_tls_set failure in __cxa_get_globals()");
+            if ( 0 != pthread_setspecific ( key_, retVal ) )
+               abort_message("pthread_setspecific failure in __cxa_get_globals()");
            }
         return retVal;
         }
@@ -94,12 +80,12 @@ extern "C" {
     // libc++abi.
     __cxa_eh_globals * __cxa_get_globals_fast () {
     //  First time through, create the key.
-        if (0 != std::__libcpp_execute_once(&flag_, construct_))
-            abort_message("execute once failure in __cxa_get_globals_fast()");
+        if (0 != pthread_once(&flag_, construct_))
+            abort_message("pthread_once failure in __cxa_get_globals_fast()");
 //        static int init = construct_();
-        return static_cast<__cxa_eh_globals*>(std::__libcpp_tls_get(key_));
+        return static_cast<__cxa_eh_globals*>(::pthread_getspecific(key_));
         }
-
+    
 }
 }
 #endif

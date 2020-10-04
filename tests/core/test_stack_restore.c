@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern "C" {
+
 __attribute__((noinline)) int no_stack_usage(void) {
   return 6;
 }
@@ -30,4 +32,6 @@ int main(int argc, char **argv) {
   printf("%d\n", alloca_gets_restored(200));
   printf("%d\n", stack_usage());
   return 0;
+}
+
 }

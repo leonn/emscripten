@@ -1,4 +1,9 @@
-#!/usr/bin/python3
+#!/usr/bin/python2
+# Copyright 2016 The Emscripten Authors.  All rights reserved.
+# Emscripten is available under two separate licenses, the MIT license and the
+# University of Illinois/NCSA Open Source License.  Both these licenses can be
+# found in the LICENSE file.
+
 # This is free and unencumbered software released into the public domain.
 #
 # Anyone is free to copy, modify, publish, use, compile, sell, or
@@ -52,6 +57,7 @@ try:
 except ImportError:
     fcntl = None
 
+import logging
 
 # Backward compatibility
 # ------------------------------------------------

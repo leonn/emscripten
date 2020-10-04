@@ -135,7 +135,7 @@ void main_loop() {
 // In this test application we want to try and keep as much in common as the timed loop
 // version but in a real application the fd can be used instead of needing to select().
 void async_main_loop(int fd, void* userData) {
-  printf("%s callback\n", (char*)userData);
+  printf("%s callback\n", userData);
   main_loop();
 }
 
@@ -144,7 +144,7 @@ void error_callback(int fd, int err, const char* msg, void* userData) {
   socklen_t len = sizeof(error);
 
   int ret = getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &len);
-  printf("%s callback\n", (char*)userData);
+  printf("%s callback\n", userData);
   printf("error message: %s\n", msg);
 
   if (err == error) {
@@ -210,7 +210,7 @@ int main() {
     sprintf(buffer, "%s:%u", inet_ntoa(adr_inet.sin_addr), (unsigned)ntohs(adr_inet.sin_port));
     // TODO: This is not the correct result: We should have a auto-bound address
     char *correct = "0.0.0.0:0";
-    printf("got (expected) socket: %s (%s), size %lu (%lu)\n", buffer, correct, strlen(buffer), strlen(correct));
+    printf("got (expected) socket: %s (%s), size %d (%d)\n", buffer, correct, strlen(buffer), strlen(correct));
     assert(strlen(buffer) == strlen(correct));
     assert(strcmp(buffer, correct) == 0);
   }
@@ -228,7 +228,7 @@ int main() {
     sprintf(buffer, "%s:%u", inet_ntoa(adr_inet.sin_addr), (unsigned)ntohs(adr_inet.sin_port));
     char correct[1000];
     sprintf(correct, "127.0.0.1:%u", SOCKK);
-    printf("got (expected) socket: %s (%s), size %lu (%lu)\n", buffer, correct, strlen(buffer), strlen(correct));
+    printf("got (expected) socket: %s (%s), size %d (%d)\n", buffer, correct, strlen(buffer), strlen(correct));
     assert(strlen(buffer) == strlen(correct));
     assert(strcmp(buffer, correct) == 0);
   }

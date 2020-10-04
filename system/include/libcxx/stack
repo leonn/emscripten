@@ -1,9 +1,10 @@
 // -*- C++ -*-
 //===---------------------------- stack -----------------------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
@@ -60,12 +61,6 @@ public:
     void swap(stack& c) noexcept(is_nothrow_swappable_v<Container>)
 };
 
-template<class Container>
-  stack(Container) -> stack<typename Container::value_type, Container>;  // C++17
-
-template<class Container, class Allocator>
-  stack(Container, Allocator) -> stack<typename Container::value_type, Container>; // C++17
-
 template <class T, class Container>
   bool operator==(const stack<T, Container>& x, const stack<T, Container>& y);
 template <class T, class Container>
@@ -118,7 +113,7 @@ public:
     typedef typename container_type::const_reference const_reference;
     typedef typename container_type::size_type       size_type;
     static_assert((is_same<_Tp, value_type>::value), "" );
-
+    
 protected:
     container_type c;
 
@@ -204,7 +199,7 @@ public:
     template <class... _Args>
         _LIBCPP_INLINE_VISIBILITY
 #if _LIBCPP_STD_VER > 14
-        decltype(auto) emplace(_Args&&... __args)
+        reference emplace(_Args&&... __args)
         { return c.emplace_back(_VSTD::forward<_Args>(__args)...);}
 #else
         void      emplace(_Args&&... __args)
@@ -233,22 +228,6 @@ public:
     bool
     operator< (const stack<T1, _C1>& __x, const stack<T1, _C1>& __y);
 };
-
-#ifndef _LIBCPP_HAS_NO_DEDUCTION_GUIDES
-template<class _Container,
-         class = typename enable_if<!__is_allocator<_Container>::value, nullptr_t>::type
->
-stack(_Container)
-    -> stack<typename _Container::value_type, _Container>;
-
-template<class _Container,
-         class _Alloc,
-         class = typename enable_if<!__is_allocator<_Container>::value, nullptr_t>::type,
-         class = typename enable_if< __is_allocator<_Alloc>::value, nullptr_t>::type
-         >
-stack(_Container, _Alloc)
-    -> stack<typename _Container::value_type, _Container>;
-#endif
 
 template <class _Tp, class _Container>
 inline _LIBCPP_INLINE_VISIBILITY

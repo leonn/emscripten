@@ -10,6 +10,6 @@ function b()
 return 0;
 }
 
-})(asmGlobalArg, asmLibraryArg, buffer);
+})(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
 
 // {"b":"a"}

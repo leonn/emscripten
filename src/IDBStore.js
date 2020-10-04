@@ -1,8 +1,7 @@
-/**
- * @license
- * Copyright 2015 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
+// Copyright 2015 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
 
 {
   indexedDB: function() {
@@ -44,7 +43,7 @@
       IDBStore.dbs[name] = db;
       callback(null, db);
     };
-    req.onerror = /** @this{IDBOpenDBRequest} */ function(e) {
+    req.onerror = function(e) {
       callback(this.error);
       e.preventDefault();
     };
