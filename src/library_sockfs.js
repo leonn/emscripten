@@ -1,14 +1,11 @@
-/**
- * @license
- * Copyright 2013 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
+// Copyright 2013 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
 
 mergeInto(LibraryManager.library, {
-  $SOCKFS__postset: function() {
-    addAtInit('SOCKFS.root = FS.mount(SOCKFS, {}, null);');
-  },
-  $SOCKFS__deps: ['$FS', '$ERRNO_CODES'], // TODO: avoid ERRNO_CODES
+  $SOCKFS__postset: '__ATINIT__.push(function() { SOCKFS.root = FS.mount(SOCKFS, {}, null); });',
+  $SOCKFS__deps: ['$FS'],
   $SOCKFS: {
     mount: function(mount) {
       // If Module['websocket'] has already been defined (e.g. for configuring
@@ -20,14 +17,14 @@ mergeInto(LibraryManager.library, {
       // object so we can register network callbacks from native JavaScript too.
       // For more documentation see system/include/emscripten/emscripten.h
       Module['websocket']._callbacks = {};
-      Module['websocket']['on'] = /** @this{Object} */ function(event, callback) {
+      Module['websocket']['on'] = function(event, callback) {
 	    if ('function' === typeof callback) {
 		  this._callbacks[event] = callback;
         }
 	    return this;
       };
 
-      Module['websocket'].emit = /** @this{Object} */ function(event, param) {
+      Module['websocket'].emit = function(event, param) {
 	    if ('function' === typeof this._callbacks[event]) {
 		  this._callbacks[event].call(this, param);
         }
@@ -46,7 +43,6 @@ mergeInto(LibraryManager.library, {
       return FS.createNode(null, '/', {{{ cDefine('S_IFDIR') }}} | 511 /* 0777 */, 0);
     },
     createSocket: function(family, type, protocol) {
-      type &= ~{{{ cDefine('SOCK_CLOEXEC') | cDefine('SOCK_NONBLOCK') }}}; // Some applications may pass it; it makes no sense for a single process.
       var streaming = type == {{{ cDefine('SOCK_STREAM') }}};
       if (protocol) {
         assert(streaming == (protocol == {{{ cDefine('IPPROTO_TCP') }}})); // if SOCK_STREAM, must be tcp
@@ -196,17 +192,12 @@ mergeInto(LibraryManager.library, {
               }
             }
 
-            // The default WebSocket options
-            var opts = undefined;
+            // The regex trims the string (removes spaces at the beginning and end, then splits the string by
+            // <any space>,<any space> into an Array. Whitespace removal is important for Websockify and ws.
+            subProtocols = subProtocols.replace(/^ +| +$/g,"").split(/ *, */);
 
-            if (subProtocols !== 'null') {
-              // The regex trims the string (removes spaces at the beginning and end, then splits the string by
-              // <any space>,<any space> into an Array. Whitespace removal is important for Websockify and ws.
-              subProtocols = subProtocols.replace(/^ +| +$/g,"").split(/ *, */);
-
-              // The node ws library API for specifying optional subprotocol is slightly different than the browser's.
-              opts = ENVIRONMENT_IS_NODE ? {'protocol': subProtocols.toString()} : subProtocols;
-            }
+            // The node ws library API for specifying optional subprotocol is slightly different than the browser's.
+            var opts = ENVIRONMENT_IS_NODE ? {'protocol': subProtocols.toString()} : subProtocols;
 
             // some webservers (azure) does not support subprotocol header
             if (runtimeConfig && null === Module['websocket']['subprotocol']) {
@@ -219,12 +210,15 @@ mergeInto(LibraryManager.library, {
 #endif
             // If node we use the ws library.
             var WebSocketConstructor;
-#if ENVIRONMENT_MAY_BE_NODE
             if (ENVIRONMENT_IS_NODE) {
-              WebSocketConstructor = /** @type{(typeof WebSocket)} */(require('ws'));
-            } else
-#endif // ENVIRONMENT_MAY_BE_NODE
-            {
+#if ENVIRONMENT_MAY_BE_NODE
+              WebSocketConstructor = require('ws');
+#endif ENVIRONMENT_MAY_BE_NODE
+            } else if (ENVIRONMENT_IS_WEB) {
+#if ENVIRONMENT_MAY_BE_WEB
+              WebSocketConstructor = window['WebSocket'];
+#endif // ENVIRONMENT_MAY_BE_WEB
+            } else {
               WebSocketConstructor = WebSocket;
             }
             ws = new WebSocketConstructor(url, opts);
@@ -300,20 +294,15 @@ mergeInto(LibraryManager.library, {
         };
 
         function handleMessage(data) {
-          if (typeof data === 'string') {
-            var encoder = new TextEncoder(); // should be utf-8
-            data = encoder.encode(data); // make a typed array from the string
-          } else {
-            assert(data.byteLength !== undefined); // must receive an ArrayBuffer
-            if (data.byteLength == 0) {
-              // An empty ArrayBuffer will emit a pseudo disconnect event
-              // as recv/recvmsg will return zero which indicates that a socket
-              // has performed a shutdown although the connection has not been disconnected yet.
-              return;
-            } else {
-              data = new Uint8Array(data); // make a typed array view on the array buffer
-            }
+          assert(typeof data !== 'string' && data.byteLength !== undefined);  // must receive an ArrayBuffer
+
+          // An empty ArrayBuffer will emit a pseudo disconnect event
+          // as recv/recvmsg will return zero which indicates that a socket
+          // has performed a shutdown although the connection has not been disconnected yet.
+          if (data.byteLength == 0) {
+            return;
           }
+          data = new Uint8Array(data);  // make a typed array view on the array buffer
 
 #if SOCKET_DEBUG
           out('websocket handle message (' + data.byteLength + ' bytes): ' + [Array.prototype.slice.call(data)]);
@@ -737,11 +726,11 @@ mergeInto(LibraryManager.library, {
       try {
         if (event === 'error') {
           var sp = stackSave();
-          var msg = allocate(intArrayFromString(data[2]), ALLOC_STACK);
-          {{{ makeDynCall('viiii', 'callback') }}}(data[0], data[1], msg, userData);
+          var msg = allocate(intArrayFromString(data[2]), 'i8', ALLOC_STACK);
+          Module['dynCall_viiii'](callback, data[0], data[1], msg, userData);
           stackRestore(sp);
         } else {
-          {{{ makeDynCall('vii', 'callback') }}}(data, userData);
+          Module['dynCall_vii'](callback, data, userData);
         }
       } catch (e) {
         if (e instanceof ExitStatus) {
@@ -753,7 +742,7 @@ mergeInto(LibraryManager.library, {
       }
     };
 
-    noExitRuntime = true;
+    Module['noExitRuntime'] = true;
     Module['websocket']['on'](event, callback ? _callback : null);
   },
   emscripten_set_socket_error_callback__deps: ['__set_network_callback'],

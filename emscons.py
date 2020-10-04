@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 """Wrapping the scons invocation, EMSCRIPTEN_TOOL_PATH is set in the process
 environment, and can be used to locate the emscripten SCons Tool.
 

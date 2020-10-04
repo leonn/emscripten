@@ -47,7 +47,7 @@ dgram.createSocket = function(type, callback) {};
 dgram.Socket = function() {};
 
 /**
- * @param {nodeBuffer.Buffer} buf
+ * @param {buffer.Buffer} buf
  * @param {number} offset
  * @param {number} length
  * @param {number} port

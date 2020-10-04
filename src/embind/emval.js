@@ -151,7 +151,7 @@ var LibraryEmVal = {
         var obj = new constructor(arg0, arg1, arg2);
         return __emval_register(obj);
     } */
-#if DYNAMIC_EXECUTION == 0
+#if NO_DYNAMIC_EXECUTION
     var argsList = new Array(argCount + 1);
     return function(constructor, argTypes, args) {
       argsList[0] = constructor;
@@ -174,7 +174,7 @@ var LibraryEmVal = {
 
     for(var i = 0; i < argCount; ++i) {
         functionBody +=
-            "var argType"+i+" = requireRegisteredType(Module['HEAP32'][(argTypes >>> 2) + "+i+"], \"parameter "+i+"\");\n" +
+            "var argType"+i+" = requireRegisteredType(HEAP32[(argTypes >> 2) + "+i+"], \"parameter "+i+"\");\n" +
             "var arg"+i+" = argType"+i+".readValueFromPointer(args);\n" +
             "args += argType"+i+"['argPackAdvance'];\n";
     }
@@ -184,8 +184,8 @@ var LibraryEmVal = {
         "}\n";
 
     /*jshint evil:true*/
-    return (new Function("requireRegisteredType", "Module", "__emval_register", functionBody))(
-        requireRegisteredType, Module, __emval_register);
+    return (new Function("requireRegisteredType", "HEAP32", "__emval_register", functionBody))(
+        requireRegisteredType, HEAP32, __emval_register);
 #endif
   },
 
@@ -202,16 +202,13 @@ var LibraryEmVal = {
     return newer(handle, argTypes, args);
   },
 
-#if DYNAMIC_EXECUTION == 0
+#if NO_DYNAMIC_EXECUTION
   $emval_get_global: function() {
-    if (typeof globalThis === 'object') {
-      return globalThis;
-    }
     function testGlobal(obj) {
       obj['$$$embind_global$$$'] = obj;
       var success = typeof $$$embind_global$$$ === 'object' && obj['$$$embind_global$$$'] === obj;
       if (!success) {
-        delete obj['$$$embind_global$$$'];
+	delete obj['$$$embind_global$$$'];
       }
       return success;
     }
@@ -220,8 +217,8 @@ var LibraryEmVal = {
     }
     if (typeof global === 'object' && testGlobal(global)) {
       $$$embind_global$$$ = global;
-    } else if (typeof self === 'object' && testGlobal(self)) {
-      $$$embind_global$$$ = self; // This works for both "window" and "self" (Web Workers) global objects
+    } else if (typeof window === 'object' && testGlobal(window)) {
+      $$$embind_global$$$ = window;
     }
     if (typeof $$$embind_global$$$ === 'object') {
       return $$$embind_global$$$;
@@ -230,14 +227,7 @@ var LibraryEmVal = {
   },
 #else
   // appease jshint (technically this code uses eval)
-  $emval_get_global: function() {
-    if (typeof globalThis === 'object') {
-      return globalThis;
-    }
-    return (function(){
-      return Function;
-    })()('return this')();
-  },
+  $emval_get_global: function() { return (function(){return Function;})()('return this')(); },
 #endif
   _emval_get_global__deps: ['_emval_register', '$getStringOrSymbol', '$emval_get_global'],
   _emval_get_global: function(name) {
@@ -281,37 +271,31 @@ var LibraryEmVal = {
   },
 
   _emval_equals__deps: ['$requireHandle'],
-  _emval_equals: function(first, second) {
+  _emval_equals: function(first, second ) {
     first = requireHandle(first);
     second = requireHandle(second);
     return first == second;
   },
 
   _emval_strictly_equals__deps: ['$requireHandle'],
-  _emval_strictly_equals: function(first, second) {
+  _emval_strictly_equals: function(first, second ) {
     first = requireHandle(first);
     second = requireHandle(second);
     return first === second;
   },
 
   _emval_greater_than__deps: ['$requireHandle'],
-  _emval_greater_than: function(first, second) {
+  _emval_greater_than: function(first, second ) {
     first = requireHandle(first);
     second = requireHandle(second);
     return first > second;
   },
 
   _emval_less_than__deps: ['$requireHandle'],
-  _emval_less_than: function(first, second) {
+  _emval_less_than: function(first, second ) {
     first = requireHandle(first);
     second = requireHandle(second);
     return first < second;
-  },
-
-  _emval_not__deps: ['$requireHandle'],
-  _emval_not: function(object) {
-    object = requireHandle(object);
-    return !object;
   },
 
   _emval_call__deps: ['_emval_lookupTypes', '_emval_register', '$requireHandle'],
@@ -331,7 +315,7 @@ var LibraryEmVal = {
   },
 
   _emval_lookupTypes__deps: ['$requireRegisteredType'],
-  _emval_lookupTypes: function(argCount, argTypes) {
+  _emval_lookupTypes: function(argCount, argTypes, argWireTypes) {
     var a = new Array(argCount);
     for (var i = 0; i < argCount; ++i) {
         a[i] = requireRegisteredType(
@@ -364,7 +348,7 @@ var LibraryEmVal = {
     var types = __emval_lookupTypes(argCount, argTypes);
 
     var retType = types[0];
-#if DYNAMIC_EXECUTION == 0
+#if NO_DYNAMIC_EXECUTION
     var argN = new Array(argCount - 1);
     var invokerFunction = function(handle, name, destructors, args) {
       var offset = 0;
@@ -454,19 +438,7 @@ var LibraryEmVal = {
     constructor = requireHandle(constructor);
     return object instanceof constructor;
   },
-
-  _emval_is_number__deps: ['$requireHandle'],
-  _emval_is_number: function(handle) {
-    handle = requireHandle(handle);
-    return typeof handle === 'number';
-  },
-
-  _emval_is_string__deps: ['$requireHandle'],
-  _emval_is_string: function(handle) {
-    handle = requireHandle(handle);
-    return typeof handle === 'string';
-  },
-
+  
   _emval_in__deps: ['$requireHandle'],
   _emval_in: function(item, object) {
     item = requireHandle(item);
@@ -481,21 +453,6 @@ var LibraryEmVal = {
     return delete object[property];
   },
 
-  _emval_throw__deps: ['$requireHandle'],
-  _emval_throw: function(object) {
-    object = requireHandle(object);
-    throw object;
-  },
-
-#if ASYNCIFY
-  _emval_await__deps: ['$requireHandle', '_emval_register', '$Asyncify'],
-  _emval_await: function(promise) {
-    return Asyncify.handleAsync(function () {
-      promise = requireHandle(promise);
-      return promise.then(__emval_register);
-    });
-  },
-#endif
 };
 
 mergeInto(LibraryManager.library, LibraryEmVal);

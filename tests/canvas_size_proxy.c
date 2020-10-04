@@ -12,7 +12,7 @@ int main()
 {
     int result = 0;
     double w, h;
-    emscripten_get_element_css_size("#canvas", &w, &h);
+    emscripten_get_element_css_size(NULL, &w, &h);
     if (isnan(w) || isnan(h))
     {
         result = 1;

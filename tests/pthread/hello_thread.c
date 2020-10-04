@@ -7,7 +7,6 @@
 
 #include <pthread.h>
 #include <emscripten.h>
-#include <emscripten/html5.h>
 
 void *thread_main(void *arg)
 {
@@ -22,5 +21,5 @@ int main()
 {
 	pthread_t thread;
 	pthread_create(&thread, NULL, thread_main, NULL);
-	emscripten_unwind_to_js_event_loop();
+	EM_ASM(Module['noExitRuntime']=true);
 }

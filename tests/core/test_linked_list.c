@@ -10,15 +10,14 @@ struct worker_args {
   int value;
   struct worker_args* next;
 };
-
 int main() {
-  struct worker_args a;
-  struct worker_args b;
+  worker_args a;
+  worker_args b;
   a.value = 60;
   a.next = &b;
   b.value = 900;
   b.next = NULL;
-  struct worker_args* c = &a;
+  worker_args* c = &a;
   int total = 0;
   while (c) {
     total += c->value;
@@ -26,7 +25,7 @@ int main() {
   }
 
   // Chunk of em
-  struct worker_args chunk[10];
+  worker_args chunk[10];
   for (int i = 0; i < 9; i++) {
     chunk[i].value = i * 10;
     chunk[i].next = &chunk[i + 1];

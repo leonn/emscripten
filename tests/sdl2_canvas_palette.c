@@ -67,9 +67,11 @@ int main() {
   SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
   SDL_RenderPresent(renderer);
 
+
   printf("you should see red, blue and yellow rectangles\n");
 
-  // Don't quit - we need to reftest the canvas! SDL_Quit();
+
+  SDL_Quit();
 
   return 0;
 }

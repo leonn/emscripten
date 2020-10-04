@@ -25,8 +25,19 @@ long* _get_timezone() {
   return &timezone;
 }
 
-// Musl lock internals. As we assume wasi is single-threaded for now, these
-// are no-ops.
+char** environ;
 
-void __lock(void* ptr) {}
-void __unlock(void* ptr) {}
+char*** _get_environ() {
+  return &environ;
+}
+
+// Call JS to build the default environment.
+
+extern void __buildEnvironment(void*);
+
+// TODO: this needs very high priority, so user ctors that use environ do not happen first
+__attribute__((constructor))
+void __emscripten_environ_constructor(void) {
+  __buildEnvironment((void*)&environ);
+}
+

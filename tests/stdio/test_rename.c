@@ -34,7 +34,6 @@ void setup() {
   mkdir("dir-nonempty", 0777);
   mkdir("dir/subdir3", 0777);
   mkdir("dir/subdir3/subdir3_1", 0777);
-  mkdir("dir/subdir4/", 0777);
   create_file("dir-nonempty/file", "abcdef", 0777);
 }
 
@@ -51,8 +50,6 @@ void cleanup() {
   rmdir("dir/subdir3/subdir3_1/subdir1 renamed");
   rmdir("dir/subdir3/subdir3_1");
   rmdir("dir/subdir3");
-  rmdir("dir/subdir4/");
-  rmdir("dir/subdir5/");
   rmdir("dir");
   rmdir("dir-readonly");
   unlink("dir-nonempty/file");
@@ -114,14 +111,6 @@ void test() {
   err = rename("dir/subdir2", "dir/subdir3/subdir3_1/subdir1 renamed");
   assert(!err);
   err = access("dir/subdir3/subdir3_1/subdir1 renamed", F_OK);
-  assert(!err);
-
-  // test that non-existant parent during rename generates the correct error code
-  err = rename("dir/hicsuntdracones/empty", "dir/hicsuntdracones/renamed");
-  assert(err == -1);
-  assert(errno == ENOENT);
-  
-  err = rename("dir/subdir4/", "dir/subdir5/");
   assert(!err);
 
   puts("success");

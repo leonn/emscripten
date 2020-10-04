@@ -4,9 +4,9 @@
 Emscripten SDK (emsdk)
 ======================
 
-**Emscripten SDK (** ``emsdk`` **) is used to perform all SDK maintenance. You only need to install the SDK once; after that emsdk can do all further updates!**
+** Emscripten SDK (** ``emsdk`` **) is used to perform all SDK maintenance. You only need to install the SDK once; after that emsdk can do all further updates!**
 
-With *emsdk* you can download, install or remove *any* :term:`SDK` or :term:`Tool`, and even use the :ref:`bleeding edge versions <emsdk-master-or-incoming-sdk>` in development on GitHub. To access the *emsdk* on Windows, first launch the :ref:`Emscripten Command Prompt <emcmdprompt>`. Most operations are of the form ``./emsdk command``.
+With *emsdk* you can download, install or remove *any* :term:`SDK` or :term:`Tool`, and even use the :ref:`bleeding edge versions <emsdk-master-or-incoming-sdk>` in development on Github. To access the *emsdk* on Windows, first launch the :ref:`Emscripten Command Prompt <emcmdprompt>`. Most operations are of the form ``./emsdk command``.
 
 This document provides the command syntax, and a :ref:`set of guides <emsdk_howto>` explaining how to perform both common and advanced maintenance operations.
 
@@ -42,7 +42,7 @@ Arguments
 
 .. note::
 
-  - For Linux and macOS the commands are called with **./emsdk**. On Windows use **emsdk**.
+  - For Linux and Mac OSX the commands are called with **./emsdk**. On Windows use **emsdk**.
 
 .. _emsdk-specified-tool-sdk:
 
@@ -69,10 +69,7 @@ The :term:`SDK` targets are a convenience mechanism for specifying the full set 
   ./emsdk install sdk-incoming-64bit
   ./emsdk install git-1.8.3 clang-incoming-64bit node-0.10.17-64bit python-2.7.5.3-64bit java-7.45-64bit emscripten-incoming
 
-A particular installed SDK (or tool) can then be set as :term:`active <Active
-Tool/SDK>`, meaning that it will be used when Emscripten is run. The active
-"compiler configuration" is stored is a config file (*.emscripten*) within
-the emsdk directory.
+A particular installed SDK (or tool) can then be set as :term:`active <Active Tool/SDK>`, meaning that it will be used when Emscripten is run. The active "compiler configuration" is stored in a user-specific file (*~/.emscripten*), which is discussed in the next section.
 
 .. note:: The different tools and SDKs managed by *emsdk* are stored in different directories under the root folder you specified when you first installed an SDK, grouped by tool and version.
 
@@ -84,8 +81,7 @@ Emscripten Compiler Configuration File (.emscripten)
 
 The *Compiler Configuration File* stores the :term:`active <Active Tool/SDK>` configuration on behalf of the *emsdk*. The active configuration defines the specific set of tools that are used by default if Emscripten in called on the :ref:`Emscripten Command Prompt <emcmdprompt>`.
 
-The configuration file is named **.emscripten**. It is emsdk-specific, so it
-won't conflict with any config file the user might have in their home directory.
+The configuration file is named **.emscripten**. It is user-specific, and is located in the user's home directory (**~/.emscripten** on Linux).
 
 The file should generally not be updated directly unless you're :ref:`building Emscripten from source <installing-from-source>`. Instead use the *emsdk* to activate specific SDKs and tools as needed (``emsdk activate <tool/SDK>``).
 
@@ -94,26 +90,38 @@ Below are typical **.emscripten** files created by *emsdk*. Note the variable na
   # .emscripten file from Windows SDK
 
   import os
+  SPIDERMONKEY_ENGINE = ''
+  NODE_JS = 'node'
   LLVM_ROOT='C:/Program Files/Emscripten/clang/e1.21.0_64bit'
   NODE_JS='C:/Program Files/Emscripten/node/0.10.17_64bit/node.exe'
+  PYTHON='C:/Program Files/Emscripten/python/2.7.5.3_64bit/python.exe'
   JAVA='C:/Program Files/Emscripten/java/7.45_64bit/bin/java.exe'
+  V8_ENGINE = ''
+  TEMP_DIR = 'c:/users/hamis_~1/appdata/local/temp'
+  COMPILER_ENGINE = NODE_JS
+  JS_ENGINES = [NODE_JS]
 
 ::
 
   # .emscripten file from Linux SDK
 
   import os
+  SPIDERMONKEY_ENGINE = ''
   NODE_JS = 'nodejs'
   LLVM_ROOT='/home/ubuntu/emsdk_portable/clang/fastcomp/build_incoming_64/bin'
+  V8_ENGINE = ''
+  TEMP_DIR = '/tmp'
+  COMPILER_ENGINE = NODE_JS
+  JS_ENGINES = [NODE_JS]
 
 .. _emsdk_howto:
 
 "How to" guides
 =========================
 
-The following topics explain how to perform both common and advanced maintenance operations, ranging from installing the latest SDK through to installing your own fork from GitHub.
+The following topics explain how to perform both common and advanced maintenance operations, ranging from installing the latest SDK through to installing your own fork from Github.
 
-.. note:: The examples below show the commands for Linux and macOS. The commands are the same on Windows, but you need to replace **./emsdk** with **emsdk**.
+.. note:: The examples below show the commands for Linux and Mac OS X. The commands are the same on Windows, but you need to replace **./emsdk** with **emsdk**.
 
 .. _emsdk-get-latest-sdk:
 
@@ -155,10 +163,6 @@ How do I install a tool/SDK version?
 Use the ``install`` argument to download and install a new tool or SDK version: ::
 
   ./emsdk install <tool/sdk name>
-  
-For example: ::
-
-  ./emsdk install sdk-1.38.21-64bit
 
 .. note:: An installed tool is present on the local machine, but not necessarily the active environment. To make an installed SDK active, use the ``activate`` command.
 
@@ -193,16 +197,14 @@ First use the ``update`` command to fetch package information for all new tools 
 How do I change the currently active SDK version?
 ----------------------------------------------------------------
 
-Toggle between different tools and SDK versions using the :term:`activate
-<Active Tool/SDK>` command. This will set up ``.emscripten`` to point to that
-particular tool: ::
+Toggle between different tools and SDK versions using the :term:`activate <Active Tool/SDK>` command. This will set up ``~/.emscripten`` to point to that particular tool: ::
 
   ./emsdk activate <tool/sdk name>
 
-  # On Linux and macOS, also set the environment variables.
+  # On Linux and OSX, also set the environment variables.
   source ./emsdk_env.sh
 
-.. note:: On Linux and macOS, ``activate`` writes the required information to the configuration file, but cannot automatically set up the environment variables in the current terminal. To do this you need to call ``source ./emsdk_env.sh`` after calling ``activate``. The use of ``source`` is a security feature of Unix shells.
+.. note:: On Linux and Mac OS X, ``activate`` writes the required information to the configuration file, but cannot automatically set up the environment variables in the current terminal. To do this you need to call ``source ./emsdk_env.sh`` after calling ``activate``. The use of ``source`` is a security feature of Unix shells.
 
   On Windows, calling ``activate`` automatically sets up the required paths and environment variables.
 
@@ -224,13 +226,16 @@ How do I install and activate old Emscripten SDKs and tools?
   # Activate required version.
   ./emsdk activate <name_of_tool>
 
+On Windows, you can directly install an old SDK version by using one of :ref:`these archived NSIS installers <archived-nsis-windows-sdk-releases>`.
+
+
 
 .. _emsdk-master-or-incoming-sdk:
 
 How do I track the latest Emscripten development with the SDK?
 ------------------------------------------------------------------------------------------------
 
-It is also possible to use the latest and greatest versions of the tools on the GitHub repositories! This allows you to obtain new features and latest fixes immediately as they are pushed to GitHub, without having to wait for release to be tagged. **No GitHub account or fork of Emscripten is required.**
+It is also possible to use the latest and greatest versions of the tools on the Github repositories! This allows you to obtain new features and latest fixes immediately as they are pushed to Github, without having to wait for release to be tagged. **No Github account or fork of Emscripten is required.**
 
 To switch to using the latest upstream git development branch (``incoming``), run the following:
 
@@ -239,7 +244,7 @@ To switch to using the latest upstream git development branch (``incoming``), ru
   # Install git. Skip if the system already has it.
   ./emsdk install git-1.8.3
 
-  # Clone+pull the latest emscripten-core/emscripten/incoming.
+  # Clone+pull the latest kripken/emscripten/incoming.
   ./emsdk install sdk-incoming-64bit
 
   # Set the "incoming SDK" as the active version.
@@ -249,7 +254,7 @@ If you want to use the upstream stable branch ``master``, then replace ``-incomi
 
 .. _emsdk-howto-use-own-fork:
 
-How do I use my own Emscripten GitHub fork with the SDK?
+How do I use my own Emscripten Github fork with the SDK?
 ----------------------------------------------------------------
 
 It is also possible to use your own fork of the Emscripten repository via the SDK. This is useful in the case when you want to make your own modifications to the Emscripten toolchain, but still keep using the SDK environment and tools.

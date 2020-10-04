@@ -28,8 +28,10 @@ int main() {
     errno = 0;
     if (clock_settime(clocks[i], &ts) == 0)
       printf("clock_settime should have failed\n");
-    else if (errno == EPERM)
+    else if (errno == EPERM && clocks[i] == CLOCK_REALTIME)
       printf("clock_settime failed with EPERM (OK)\n");
+    else if (errno == EINVAL && clocks[i] == CLOCK_MONOTONIC)
+      printf("clock_settime failed with EINVAL (OK)\n");
     else
       printf("clock_settime failed with wrong error code\n");
   }
@@ -44,9 +46,9 @@ int main() {
     printf("clock_getres should have failed\n");
   else
     printf("clock_getres failed with EINVAL (OK)\n");
-  if (clock_settime(bogus, &ts) == 0 || errno != EPERM)
+  if (clock_settime(bogus, &ts) == 0 || errno != EINVAL)
     printf("clock_settime should have failed\n");
   else
-    printf("clock_settime failed with EPERM (OK)\n");
+    printf("clock_settime failed with EINVAL (OK)\n");
   return 0;
 }

@@ -7,7 +7,6 @@
 #include <emscripten.h>
 #include <emscripten/threading.h>
 #include <math.h>
-#include <stdio.h>
 
 volatile int threadStarted = 0;
 volatile int timeReceived = 0;
@@ -57,5 +56,5 @@ int main()
 	mainThreadTime = emscripten_get_now();
 	wake(&timeReceived);
 
-	EM_ASM(noExitRuntime=true);
+	EM_ASM(Module['noExitRuntime']=true);
 }

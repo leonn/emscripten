@@ -1,8 +1,7 @@
-/**
- * @license
- * Copyright 2014 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
+// Copyright 2014 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
 
 // 'use strict'
 var funs = {
@@ -10,7 +9,7 @@ var funs = {
 
   signal__deps: ['_sigalrm_handler'],
   signal: function(sig, func) {
-    if (sig == {{{ cDefine('SIGALRM') }}}) {
+    if (sig == 14 /*SIGALRM*/) {
       __sigalrm_handler = func;
     } else {
 #if ASSERTIONS
@@ -19,8 +18,6 @@ var funs = {
     }
     return 0;
   },
-  bsd_signal__sig: 'iii',
-  bsd_signal: 'signal',
   sigemptyset: function(set) {
     {{{ makeSetValue('set', '0', '0', 'i32') }}};
     return 0;
@@ -65,7 +62,7 @@ var funs = {
 #endif
     return 0;
   },
-  kill__deps: ['$ERRNO_CODES', '$setErrNo'],
+  kill__deps: ['$ERRNO_CODES', '__setErrNo'],
   kill: function(pid, sig) {
     // http://pubs.opengroup.org/onlinepubs/000095399/functions/kill.html
     // Makes no sense in a single-process environment.
@@ -73,16 +70,16 @@ var funs = {
 #if ASSERTIONS
     err('Calling stub instead of kill()');
 #endif
-    setErrNo(ERRNO_CODES.EPERM);
+    ___setErrNo(ERRNO_CODES.EPERM);
     return -1;
   },
 
-  killpg__deps: ['$ERRNO_CODES', '$setErrNo'],
+  killpg__deps: ['$ERRNO_CODES', '__setErrNo'],
   killpg: function() {
 #if ASSERTIONS
     err('Calling stub instead of killpg()');
 #endif
-    setErrNo(ERRNO_CODES.EPERM);
+    ___setErrNo(ERRNO_CODES.EPERM);
     return -1;
   },
   siginterrupt: function() {
@@ -92,12 +89,12 @@ var funs = {
     return 0;
   },
 
-  raise__deps: ['$ERRNO_CODES', '$setErrNo'],
+  raise__deps: ['$ERRNO_CODES', '__setErrNo'],
   raise: function(sig) {
 #if ASSERTIONS
     err('Calling stub instead of raise()');
 #endif
-  setErrNo(ERRNO_CODES.ENOSYS);
+  ___setErrNo(ERRNO_CODES.ENOSYS);
 #if ASSERTIONS
     warnOnce('raise() returning an error as we do not support it');
 #endif
@@ -108,7 +105,7 @@ var funs = {
   alarm__deps: ['_sigalrm_handler'],
   alarm: function(seconds) {
     setTimeout(function() {
-      if (__sigalrm_handler) {{{ makeDynCall('vi', '__sigalrm_handler') }}}(0);
+      if (__sigalrm_handler) Module['dynCall_vi'](__sigalrm_handler, 0);
     }, seconds*1000);
   },
   ualarm: function() {
@@ -121,7 +118,7 @@ var funs = {
     throw 'getitimer() is not implemented yet';
   },
 
-  pause__deps: ['$setErrNo', '$ERRNO_CODES'],
+  pause__deps: ['__setErrNo', '$ERRNO_CODES'],
   pause: function() {
     // int pause(void);
     // http://pubs.opengroup.org/onlinepubs/000095399/functions/pause.html
@@ -129,10 +126,9 @@ var funs = {
 #if ASSERTIONS
     err('Calling stub instead of pause()');
 #endif
-    setErrNo(ERRNO_CODES.EINTR);
+    ___setErrNo(ERRNO_CODES.EINTR);
     return -1;
   },
-#if SUPPORT_LONGJMP
 #if ASSERTIONS
   siglongjmp__deps: ['longjmp'],
   siglongjmp: function(env, value) {
@@ -144,11 +140,8 @@ var funs = {
     _longjmp(env, value);
   },
 #else
-  siglongjmp__sig: 'vii',
   siglongjmp: 'longjmp',
 #endif
-#endif
-
   sigpending: function(set) {
     {{{ makeSetValue('set', 0, 0, 'i32') }}};
     return 0;
@@ -163,6 +156,7 @@ var funs = {
   //sigsetmask
   //siggetmask
   //sigsuspend
+  //bsd_signal
   //siginterrupt
   //sigqueue
   //sysv_signal

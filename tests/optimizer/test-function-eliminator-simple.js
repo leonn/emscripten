@@ -6,7 +6,7 @@ var asm = (function(global, env, buffer) {
  function b() {
   return 0;
  }
-})(asmGlobalArg, asmLibraryArg, buffer);
+})(Module.asmGlobalArg, Module.asmLibraryArg, buffer);
 
 
 

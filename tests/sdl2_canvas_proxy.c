@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
   SDL_RenderCopy(renderer, screenTexture, NULL, NULL);
   SDL_RenderPresent(renderer);
 
-  // Don't quit - we need to reftest the canvas! SDL_Quit();
+  SDL_Quit();
 
   EM_ASM(window.close());
   return 0;

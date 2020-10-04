@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 # Copyright 2018 The Emscripten Authors.  All rights reserved.
 # Emscripten is available under two separate licenses, the MIT license and the
 # University of Illinois/NCSA Open Source License.  Both these licenses can be
@@ -58,6 +58,7 @@ exclude_filenames = [
     'tests/box2d/',
     'tests/glbook/',
     'tests/lzma/lzma/',
+    'tests/nbody-java/',
     'tests/cube2hash/',
     'tests/optimizer/',
     'tests/sqlite/sqlite3.c',

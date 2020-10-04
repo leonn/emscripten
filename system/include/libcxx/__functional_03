@@ -1,9 +1,10 @@
 // -*- C++ -*-
 //===----------------------------------------------------------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
@@ -104,7 +105,7 @@ class __func<_Fp, _Alloc, _Rp()>
 {
     __compressed_pair<_Fp, _Alloc> __f_;
 public:
-    explicit __func(_Fp __f) : __f_(_VSTD::move(__f), __default_init_tag()) {}
+    explicit __func(_Fp __f) : __f_(_VSTD::move(__f)) {}
     explicit __func(_Fp __f, _Alloc __a) : __f_(_VSTD::move(__f), _VSTD::move(__a)) {}
     virtual __base<_Rp()>* __clone() const;
     virtual void __clone(__base<_Rp()>*) const;
@@ -189,7 +190,7 @@ class __func<_Fp, _Alloc, _Rp(_A0)>
 {
     __compressed_pair<_Fp, _Alloc> __f_;
 public:
-    _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f) : __f_(_VSTD::move(__f), __default_init_tag()) {}
+    _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f) : __f_(_VSTD::move(__f)) {}
     _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f, _Alloc __a)
         : __f_(_VSTD::move(__f), _VSTD::move(__a)) {}
     virtual __base<_Rp(_A0)>* __clone() const;
@@ -275,7 +276,7 @@ class __func<_Fp, _Alloc, _Rp(_A0, _A1)>
 {
     __compressed_pair<_Fp, _Alloc> __f_;
 public:
-    _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f) : __f_(_VSTD::move(__f), __default_init_tag()) {}
+    _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f) : __f_(_VSTD::move(__f)) {}
     _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f, _Alloc __a)
         : __f_(_VSTD::move(__f), _VSTD::move(__a)) {}
     virtual __base<_Rp(_A0, _A1)>* __clone() const;
@@ -361,7 +362,7 @@ class __func<_Fp, _Alloc, _Rp(_A0, _A1, _A2)>
 {
     __compressed_pair<_Fp, _Alloc> __f_;
 public:
-    _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f) : __f_(_VSTD::move(__f), __default_init_tag()) {}
+    _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f) : __f_(_VSTD::move(__f)) {}
     _LIBCPP_INLINE_VISIBILITY explicit __func(_Fp __f, _Alloc __a)
         : __f_(_VSTD::move(__f), _VSTD::move(__a)) {}
     virtual __base<_Rp(_A0, _A1, _A2)>* __clone() const;
@@ -599,10 +600,7 @@ template<class _Rp>
 function<_Rp()>&
 function<_Rp()>::operator=(const function& __f)
 {
-    if (__f)
-        function(__f).swap(*this);
-    else
-        *this = nullptr;
+    function(__f).swap(*this);
     return *this;
 }
 
@@ -610,12 +608,11 @@ template<class _Rp>
 function<_Rp()>&
 function<_Rp()>::operator=(nullptr_t)
 {
-    __base* __t = __f_;
+    if (__f_ == (__base*)&__buf_)
+        __f_->destroy();
+    else if (__f_)
+        __f_->destroy_deallocate();
     __f_ = 0;
-    if (__t == (__base*)&__buf_)
-        __t->destroy();
-    else if (__t)
-        __t->destroy_deallocate();
     return *this;
 }
 
@@ -879,10 +876,7 @@ template<class _Rp, class _A0>
 function<_Rp(_A0)>&
 function<_Rp(_A0)>::operator=(const function& __f)
 {
-    if (__f)
-        function(__f).swap(*this);
-    else
-        *this = nullptr;
+    function(__f).swap(*this);
     return *this;
 }
 
@@ -890,12 +884,11 @@ template<class _Rp, class _A0>
 function<_Rp(_A0)>&
 function<_Rp(_A0)>::operator=(nullptr_t)
 {
-    __base* __t = __f_;
+    if (__f_ == (__base*)&__buf_)
+        __f_->destroy();
+    else if (__f_)
+        __f_->destroy_deallocate();
     __f_ = 0;
-    if (__t == (__base*)&__buf_)
-        __t->destroy();
-    else if (__t)
-        __t->destroy_deallocate();
     return *this;
 }
 
@@ -1159,10 +1152,7 @@ template<class _Rp, class _A0, class _A1>
 function<_Rp(_A0, _A1)>&
 function<_Rp(_A0, _A1)>::operator=(const function& __f)
 {
-    if (__f)
-        function(__f).swap(*this);
-    else
-        *this = nullptr;
+    function(__f).swap(*this);
     return *this;
 }
 
@@ -1170,12 +1160,11 @@ template<class _Rp, class _A0, class _A1>
 function<_Rp(_A0, _A1)>&
 function<_Rp(_A0, _A1)>::operator=(nullptr_t)
 {
-    __base* __t = __f_;
+    if (__f_ == (__base*)&__buf_)
+        __f_->destroy();
+    else if (__f_)
+        __f_->destroy_deallocate();
     __f_ = 0;
-    if (__t == (__base*)&__buf_)
-        __t->destroy();
-    else if (__t)
-        __t->destroy_deallocate();
     return *this;
 }
 
@@ -1439,10 +1428,7 @@ template<class _Rp, class _A0, class _A1, class _A2>
 function<_Rp(_A0, _A1, _A2)>&
 function<_Rp(_A0, _A1, _A2)>::operator=(const function& __f)
 {
-    if (__f)
-        function(__f).swap(*this);
-    else
-        *this = nullptr;
+    function(__f).swap(*this);
     return *this;
 }
 
@@ -1450,12 +1436,11 @@ template<class _Rp, class _A0, class _A1, class _A2>
 function<_Rp(_A0, _A1, _A2)>&
 function<_Rp(_A0, _A1, _A2)>::operator=(nullptr_t)
 {
-    __base* __t = __f_;
+    if (__f_ == (__base*)&__buf_)
+        __f_->destroy();
+    else if (__f_)
+        __f_->destroy_deallocate();
     __f_ = 0;
-    if (__t == (__base*)&__buf_)
-        __t->destroy();
-    else if (__t)
-        __t->destroy_deallocate();
     return *this;
 }
 

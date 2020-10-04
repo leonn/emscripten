@@ -1,11 +1,10 @@
-/**
- * @license
- * Copyright 2015 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
+// Copyright 2015 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
 
 // cpuprofiler.js is an interactive CPU execution profiler which measures the time spent in executing code that utilizes requestAnimationFrame(), setTimeout() and/or setInterval() handlers to run.
-// Visit https://github.com/emscripten-core/emscripten for the latest version.
+// Visit https://github.com/kripken/emscripten for the latest version.
 
 // performance.now() might get faked later (this is done in the openwebgames.com test harness), so save the real one for cpu profiler.
 // However, in Safari, assigning to the performance object will mysteriously vanish in other imported .js <script>, so for that, replace
@@ -87,13 +86,9 @@ var emscriptenCpuProfiler = {
       var minDt = 99999999;
       var maxDt = 0;
       var nSamples = 0;
-
-      var numSamplesToAccount = Math.min(this.timeSpentInMainloop.length, 120);
-      var startX = (this.currentHistogramX - numSamplesToAccount + this.canvas.width) % this.canvas.width;
-      for (var i = 0; i < numSamplesToAccount; ++i) {
-        var x = (startX + i) % this.canvas.width;
-        var dt = this.timeSpentInMainloop[x] + this.timeSpentOutsideMainloop[x];
-        totalRAFDt += this.timeSpentInMainloop[x];
+      for (var i = 0; i < this.timeSpentInMainloop.length; ++i) {
+        var dt = this.timeSpentInMainloop[i] + this.timeSpentOutsideMainloop[i];
+        totalRAFDt += this.timeSpentInMainloop[i];
         if (dt > 0) ++nSamples;
         totalDt += dt;
         minDt = Math.min(minDt, dt);
@@ -102,9 +97,8 @@ var emscriptenCpuProfiler = {
       var avgDt = totalDt / nSamples;
       var avgFps = 1000.0 / avgDt;
       var dtVariance = 0;
-      for (var i = 1; i < numSamplesToAccount; ++i) {
-        var x = (startX + i) % this.canvas.width;
-        var dt = this.timeSpentInMainloop[x] + this.timeSpentOutsideMainloop[x];
+      for (var i = 1; i < this.timeSpentInMainloop.length; ++i) {
+        var dt = this.timeSpentInMainloop[i] + this.timeSpentOutsideMainloop[i];
         var d = dt - avgDt;
         dtVariance += d*d;
       }
@@ -115,15 +109,14 @@ var emscriptenCpuProfiler = {
       // Compute the overhead added by WebGL:
       var hotGL = this.sections[0];
       var coldGL = this.sections[1];
-      var webGLMSecsInsideMainLoop = (hotGL ? hotGL.accumulatedFrameTimeInsideMainLoop(startX, numSamplesToAccount) : 0) + (coldGL ? coldGL.accumulatedFrameTimeInsideMainLoop(startX, numSamplesToAccount) : 0);
-      var webGLMSecsOutsideMainLoop = (hotGL ? hotGL.accumulatedFrameTimeOutsideMainLoop(startX, numSamplesToAccount) : 0) + (coldGL ? coldGL.accumulatedFrameTimeOutsideMainLoop(startX, numSamplesToAccount) : 0);
+      var webGLMSecsInsideMainLoop = (hotGL ? hotGL.accumulatedFrameTimeInsideMainLoop() : 0) + (coldGL ? coldGL.accumulatedFrameTimeInsideMainLoop() : 0);
+      var webGLMSecsOutsideMainLoop = (hotGL ? hotGL.accumulatedFrameTimeOutsideMainLoop() : 0) + (coldGL ? coldGL.accumulatedFrameTimeOutsideMainLoop() : 0);
       var webGLMSecs = webGLMSecsInsideMainLoop + webGLMSecsOutsideMainLoop;
 
       var setIntervalSection = this.sections[2];
       var setTimeoutSection = this.sections[3];
-      var totalCPUMsecs = totalRAFDt + setIntervalSection.accumulatedFrameTimeOutsideMainLoop(startX, numSamplesToAccount) + setTimeoutSection.accumulatedFrameTimeOutsideMainLoop(startX, numSamplesToAccount);
+      var totalCPUMsecs = totalRAFDt + setIntervalSection.accumulatedFrameTimeOutsideMainLoop() + setTimeoutSection.accumulatedFrameTimeOutsideMainLoop();
 
-      // Update full FPS counter
       var str = 'Last FPS: ' + fps.toFixed(2) + ', avg FPS:' + avgFps.toFixed(2) + ', min/avg/max dt: '
        + minDt.toFixed(2) + '/' + avgDt.toFixed(2) + '/' + maxDt.toFixed(2) + ' msecs, dt variance: ' + dtVariance.toFixed(3)
        + ', JavaScript CPU load: ' + asmJSLoad.toFixed(2) + '%';
@@ -131,15 +124,8 @@ var emscriptenCpuProfiler = {
       if (hotGL || coldGL) {
         str += '. WebGL CPU load: ' + (webGLMSecs * 100.0 / totalDt).toFixed(2) + '% (' + (webGLMSecs * 100.0 / totalCPUMsecs).toFixed(2) + '% of all CPU work)';
       }
+
       document.getElementById('fpsResult').innerHTML = str;
-
-      // Update lite FPS counter
-      if (this.fpsOverlay1) {
-        this.fpsOverlay1.innerText = fps.toFixed(1) + ' (' + asmJSLoad.toFixed(1) + '%)';
-        this.fpsOverlay1.style.color = fps >= 30 ? 'lightgreen' : fps >= 15 ? 'yellow' : 'red';
-        this.fpsOverlay2.innerText = minDt.toFixed(2) + '/' + avgDt.toFixed(2) + '/' + maxDt.toFixed(2) + ' ms';
-      }
-
       this.fpsCounterLastPrint = now;
     }
   },
@@ -159,22 +145,14 @@ var emscriptenCpuProfiler = {
         frametimesOutsideMainLoop: [],
         drawColor: drawColor,
         traceable: traceable,
-        accumulatedFrameTimeInsideMainLoop: function(startX, numSamples) {
+        accumulatedFrameTimeInsideMainLoop: function() {
           var total = 0;
-          numSamples = Math.min(numSamples, this.frametimesInsideMainLoop.length);
-          for(var i = 0; i < numSamples; ++i) {
-            var x = (startX + i) % this.frametimesInsideMainLoop.length;
-            if (this.frametimesInsideMainLoop[x]) total += this.frametimesInsideMainLoop[x];
-          }
+          for(var i = 0; i < this.frametimesInsideMainLoop.length; ++i) if (this.frametimesInsideMainLoop[i]) total += this.frametimesInsideMainLoop[i];
           return total;
         },
-        accumulatedFrameTimeOutsideMainLoop: function(startX, numSamples) {
+        accumulatedFrameTimeOutsideMainLoop: function() {
           var total = 0;
-          numSamples = Math.min(numSamples, this.frametimesInsideMainLoop.length);
-          for(var i = 0; i < numSamples; ++i) {
-            var x = (startX + i) % this.frametimesInsideMainLoop.length;
-            if (this.frametimesOutsideMainLoop[x]) total += this.frametimesOutsideMainLoop[x];
-          }
+          for(var i = 0; i < this.frametimesOutsideMainLoop.length; ++i) if (this.frametimesOutsideMainLoop[i]) total += this.frametimesOutsideMainLoop[i];
           return total;
         }
       };
@@ -282,24 +260,11 @@ var emscriptenCpuProfiler = {
 
   // Installs the startup hooks and periodic UI update timer.
   initialize: function initialize() {
-    // Hook into requestAnimationFrame function to grab animation even if application did not use emscripten_set_main_loop() to drive animation, but e.g. used its own function that performs requestAnimationFrame().
-    if (!window.realRequestAnimationFrame) {
-      window.realRequestAnimationFrame = window.requestAnimationFrame;
-      window.requestAnimationFrame = function(cb) {
-        function hookedCb(p) {
-          emscriptenCpuProfiler.frameStart();
-          cb(performance.now());
-          emscriptenCpuProfiler.frameEnd();
-        }
-        return window.realRequestAnimationFrame(hookedCb);
-      }
-    }
-
     // Create the UI display if it doesn't yet exist. If you want to customize the location/style of the cpuprofiler UI,
     // you can manually create this beforehand.
     cpuprofiler = document.getElementById('cpuprofiler');
     if (!cpuprofiler) {
-      var css = '.colorbox { border: solid 1px black; margin-left: 10px; margin-right: 3px; display: inline-block; width: 20px; height: 10px; }  .hastooltip:hover .tooltip { display: block; } .tooltip { display: none; background: #FFFFFF; margin-left: 28px; padding: 5px; position: absolute; z-index: 1000; width:200px; } .hastooltip { margin:0px; }';
+      var css = '.colorbox { border: solid 1px black; margin-left: 10px; margin-right: 3px; display: inline-block; width: 20px; height: 10px; }';
       var style = document.createElement('style');
       style.type = 'text/css';
       style.appendChild(document.createTextNode(css));
@@ -309,9 +274,6 @@ var emscriptenCpuProfiler = {
       if (!div) {
         div = document.createElement("div");
         document.body.appendChild(div);
-
-        // It is common to set 'overflow: hidden;' on canvas pages that do WebGL. When CpuProfiler is being used, there will be a long block of text on the page, so force-enable scrolling.
-        document.body.style.overflow = '';
       }
       var helpText = "<div style='margin-left: 10px;'>Color Legend:";
       helpText += "<div class='colorbox' style='background-color: " + this.colorCpuTimeSpentInUserCode + ";'></div>Main Loop (C/C++) Code"
@@ -344,10 +306,10 @@ var emscriptenCpuProfiler = {
       helpText += "<br><div class='colorbox' style='background-color: " + this.colorWorseThan30FPS + ";'></div><b>Browser Execution (&lt; 30fps)</b>: Same as above, except that the frame completed slowly, so the browser time is drawn in this color. Long spikes of this color indicate that the browser is running some internal operations (e.g. garbage collection) that can cause stuttering.";
       helpText += "<br><div class='colorbox' style='background-color: " + this.colorSetIntervalSection + ";'></div><b>setInterval()</b>: Specifies the amount of time spent in executing user code in setInterval() handlers.";
       helpText += "<br><div class='colorbox' style='background-color: " + this.colorSetTimeoutSection + ";'></div><b>setTimeout()</b>: Specifies the amount of time spent in executing user code in setTimeout() handlers.";
-      helpText += "<p>For bugs and suggestions, visit <a href='https://github.com/emscripten-core/emscripten/issues'>Emscripten bug tracker</a>.";
+      helpText += "<p>For bugs and suggestions, visit <a href='https://github.com/kripken/emscripten/issues'>Emscripten bug tracker</a>.";
       helpText += "</div>";
 
-      div.innerHTML = "<div style='color: black; border: 2px solid black; padding: 2px; margin-bottom: 10px; margin-left: 5px; margin-right: 5px; margin-top: 5px; background-color: #F0F0FF;'><span style='margin-left: 10px;'><b>Cpu Profiler</b><sup style='cursor: pointer;' onclick='emscriptenCpuProfiler.toggleHelpTextVisible();'>[?]</sup></span> <button style='display:inline; border: solid 1px #ADADAD; margin: 2px; background-color: #E1E1E1;' onclick='noExitRuntime=false;Module.exit();'>Halt</button><button id='toggle_webgl_profile' style='display:inline; border: solid 1px #ADADAD; margin: 2px;  background-color: #E1E1E1;' onclick='emscriptenCpuProfiler.toggleHookWebGL()'>Profile WebGL</button><button id='toggle_webgl_trace' style='display:inline; border: solid 1px #ADADAD; margin: 2px;  background-color: #E1E1E1;' onclick='emscriptenCpuProfiler.toggleTraceWebGL()'>Trace Calls</button> slower than <input id='trace_limit' oninput='emscriptenCpuProfiler.disableTraceWebGL();' style='width:40px;' value='100'></input> msecs. <span id='fpsResult' style='margin-left: 5px;'></span><canvas style='border: 1px solid black; margin-left:auto; margin-right:auto; display: block;' id='cpuprofiler_canvas' width='800px' height='200'></canvas><div id='cpuprofiler'></div>" + helpText;
+      div.innerHTML = "<div style='color: black; border: 2px solid black; padding: 2px; margin-bottom: 10px; margin-left: 5px; margin-right: 5px; margin-top: 5px; background-color: #F0F0FF;'><span style='margin-left: 10px;'><b>Cpu Profiler</b><sup style='cursor: pointer;' onclick='emscriptenCpuProfiler.toggleHelpTextVisible();'>[?]</sup></span> <button style='display:inline; border: solid 1px #ADADAD; margin: 2px; background-color: #E1E1E1;' onclick='Module.noExitRuntime=false;Module.exit();'>Halt</button><button id='toggle_webgl_profile' style='display:inline; border: solid 1px #ADADAD; margin: 2px;  background-color: #E1E1E1;' onclick='emscriptenCpuProfiler.toggleHookWebGL()'>Profile WebGL</button><button id='toggle_webgl_trace' style='display:inline; border: solid 1px #ADADAD; margin: 2px;  background-color: #E1E1E1;' onclick='emscriptenCpuProfiler.toggleTraceWebGL()'>Trace Calls</button> slower than <input id='trace_limit' oninput='emscriptenCpuProfiler.disableTraceWebGL();' style='width:40px;' value='100'></input> msecs. <span id='fpsResult' style='margin-left: 5px;'></span><canvas style='border: 1px solid black; margin-left:auto; margin-right:auto; display: block;' id='cpuprofiler_canvas' width='800px' height='200'></canvas><div id='cpuprofiler'></div>" + helpText;
       document.getElementById('trace_limit').onkeydown = function(e) { if (e.which == 13 || e.keycode == 13) emscriptenCpuProfiler.enableTraceWebGL(); else emscriptenCpuProfiler.disableTraceWebGL(); };
       cpuprofiler = document.getElementById('cpuprofiler');
 
@@ -357,32 +319,6 @@ var emscriptenCpuProfiler = {
     this.canvas = document.getElementById('cpuprofiler_canvas');
     this.canvas.width = document.documentElement.clientWidth - 32;
     this.drawContext = this.canvas.getContext('2d');
-
-    var webglCanvas = document.getElementById('canvas') || document.querySelector('canvas');
-
-    if (webglCanvas) {
-      // Create lite FPS overlay element
-      var fpsOverlay = document.createElement('div');
-      fpsOverlay.classList.add("hastooltip");
-      fpsOverlay.innerHTML = '<div id="fpsOverlay1" style="font-size: 1.5em; color: lightgreen; text-shadow: 3px 3px black;"></div><div id="fpsOverlay2" style="font-size: 1em; color: lightgrey; text-shadow: 3px 3px black;"></div> <span class="tooltip">FPS (CPU usage %)<br>Min/Avg/Max frame times (msecs)</span>';
-      fpsOverlay.style = 'position: fixed; font-weight: bold; padding: 3px; -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; cursor: pointer;';
-      fpsOverlay.onclick = function() { var view = document.getElementById('cpuprofiler_canvas'); if (view) view.scrollIntoView(); }
-      fpsOverlay.oncontextmenu = function(e) { e.preventDefault(); };
-      document.body.appendChild(fpsOverlay);
-      this.fpsOverlay1 = document.getElementById('fpsOverlay1');
-      this.fpsOverlay2 = document.getElementById('fpsOverlay2');
-      function positionOverlay() {
-        var rect = webglCanvas.getBoundingClientRect();
-        var overlayHeight = fpsOverlay.getBoundingClientRect().height || fpsOverlay.height;
-        fpsOverlay.height = overlayHeight; // Remember the overlay height when it was visible, if it is hidden.
-        fpsOverlay.style.display = (rect.bottom >= overlayHeight) ? 'block' : 'none';
-        fpsOverlay.style.top = Math.max(rect.top, 0) + 'px';
-        fpsOverlay.style.left = Math.max(rect.left, 0) + 'px';
-      }
-      setTimeout(positionOverlay, 100);
-      setInterval(positionOverlay, 5000);
-      window.addEventListener('scroll', positionOverlay);
-    }
 
     this.clearUi(0, this.canvas.width);
     this.drawGraphLabels();
@@ -525,7 +461,7 @@ var emscriptenCpuProfiler = {
     if (l9.indexOf(f) != -1) return 9;
     if (l10.indexOf(f) != -1) return 10;
     if (l11.indexOf(f) != -1) return 11;
-    console.warn('Unexpected WebGL function ' + f);
+    throw 'Unexpected WebGL function ' + f;
   },
 
   detectWebGLContext: function() {
@@ -543,7 +479,7 @@ var emscriptenCpuProfiler = {
 
   enableTraceWebGL: function() {
     document.getElementById("toggle_webgl_trace").style.background = '#00FF00';
-    this.logWebGLCallsSlowerThan = parseInt(document.getElementById('trace_limit').value, undefined /* https://github.com/google/closure-compiler/issues/3230 / https://github.com/google/closure-compiler/issues/3548 */);
+    this.logWebGLCallsSlowerThan = parseInt(document.getElementById('trace_limit').value);
   },
 
   disableTraceWebGL: function() {

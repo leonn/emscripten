@@ -8,12 +8,13 @@
 #include <stdio.h>
 #include <SDL.h>
 #include <SDL_ttf.h>
+#include <emscripten.h>
 
 SDL_Window *window;
 SDL_Renderer *renderer;
 TTF_Font *font;
 
-void render()
+void frame()
 {
     static SDL_Color colorA = { 0xff, 0x99, 0x00, 0xff };
     static SDL_Color colorB = { 0x11, 0xff, 0xff, 0xff };
@@ -43,5 +44,5 @@ int main()
     TTF_Init();
     SDL_CreateWindowAndRenderer(640, 480, 0, &window, &renderer);
     font = TTF_OpenFont("LiberationSansBold.ttf", 40);
-    render();
+    emscripten_set_main_loop(frame, -1, 1);
 }

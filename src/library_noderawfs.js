@@ -1,8 +1,7 @@
-/**
- * @license
- * Copyright 2018 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
+// Copyright 2018 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
 
 mergeInto(LibraryManager.library, {
   $NODERAWFS__deps: ['$ERRNO_CODES', '$FS', '$NODEFS'],
@@ -71,12 +70,10 @@ mergeInto(LibraryManager.library, {
         return VFS.llseek(stream, offset, whence);
       }
       var position = offset;
-      if (whence === {{{ cDefine('SEEK_CUR') }}}) {
+      if (whence === 1) {  // SEEK_CUR.
         position += stream.position;
-      } else if (whence === {{{ cDefine('SEEK_END') }}}) {
+      } else if (whence === 2) {  // SEEK_END.
         position += fs.fstatSync(stream.nfd).size;
-      } else if (whence !== {{{ cDefine('SEEK_SET') }}}) {
-        throw new FS.ErrnoError(ERRNO_CODES.EINVAL);
       }
 
       if (position < 0) {

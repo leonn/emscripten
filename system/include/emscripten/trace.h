@@ -5,7 +5,8 @@
  * found in the LICENSE file.
  */
 
-#pragma once
+#ifndef __emscripten_trace__h__
+#define __emscripten_trace__h__
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -99,3 +100,5 @@ void emscripten_trace_close(void);
 #ifdef __cplusplus
 } // ~extern "C"
 #endif
+
+#endif // __emscripten_trace__h__

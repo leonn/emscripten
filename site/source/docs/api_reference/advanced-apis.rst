@@ -16,7 +16,7 @@ This section lists APIs that are not suitable for general use, but which may be 
 settings.js
 ============
 
-`settings.js <https://github.com/emscripten-core/emscripten/blob/master/src/settings.js>`_ contains default values and options used in various places by the compiler.
+`settings.js <https://github.com/kripken/emscripten/blob/master/src/settings.js>`_ contains default values and options used in various places by the compiler.
 
 .. Warning :: Many **settings.js** options are highly brittle - certain combinations of options, and combinations of certain options used with some source code, can cause Emscripten to fail badly. This is intended for use by "advanced users", and possibly even only people developing Emscripten itself.
 
@@ -36,7 +36,7 @@ The small number of options that developers may have cause to change should be m
 preamble.js
 ===========
 
-The following advanced APIs are documented in `preamble.js <https://github.com/emscripten-core/emscripten/blob/master/src/preamble.js>`_.
+The following advanced APIs are documented in `preamble.js <https://github.com/kripken/emscripten/blob/master/src/preamble.js>`_.
 
 .. js:function:: allocate(slab, types, allocator, ptr)
 
@@ -90,11 +90,17 @@ Advanced File System API
 
 
 .. js:function:: FS.getMode(canRead, canWrite)
+  FS.joinPath(parts, forceRelative)
+  FS.absolutePath(relative, base)
+  FS.standardizePath(path)
   FS.findObject(path, dontResolveLastLink)
+  FS.analyzePath(path, dontResolveLastLink)
+  FS.createFolder(parent, name, canRead, canWrite)
   FS.createPath(parent, path, canRead, canWrite)
   FS.createFile(parent, name, properties, canRead, canWrite)
   FS.createDataFile(parent, name, data, canRead, canWrite, canOwn)
   FS.createDevice(parent, name, input, output)
+  FS.createLink(parent, name, target, canRead, canWrite)
   FS.forceLoadFile(obj)
 
   Legacy v1 compatibility functions.

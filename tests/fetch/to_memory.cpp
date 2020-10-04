@@ -48,8 +48,7 @@ int main()
 #ifndef FILE_DOES_NOT_EXIST
     result = 1;
 #endif
-    // Fetch API appears to sometimes call the handlers more than once, see https://github.com/emscripten-core/emscripten/pull/8191
-    MAYBE_REPORT_RESULT(result);
+    REPORT_RESULT(result);
 #endif
   };
 
@@ -88,8 +87,7 @@ int main()
 #ifdef FILE_DOES_NOT_EXIST
     result = 1;
 #endif
-    // Fetch API appears to sometimes call the handlers more than once, see https://github.com/emscripten-core/emscripten/pull/8191
-    MAYBE_REPORT_RESULT(result);
+    REPORT_RESULT(result);
 #endif
   };
 

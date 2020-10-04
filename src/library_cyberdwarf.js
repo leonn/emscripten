@@ -1,8 +1,7 @@
-/**
- * @license
- * Copyright 2016 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
+// Copyright 2016 The Emscripten Authors.  All rights reserved.
+// Emscripten is available under two separate licenses, the MIT license and the
+// University of Illinois/NCSA Open Source License.  Both these licenses can be
+// found in the LICENSE file.
 
 var LibraryCyberdwarf = {
   // These are empty, designed to be replaced when a debugger is invoked

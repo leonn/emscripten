@@ -10,7 +10,7 @@ struct stat {
   int x, y;
 };
 int main() {
-  struct stat s;
+  stat s;
   s.x = 10;
   s.y = 22;
   printf("*%d,%d*\n", s.x, s.y);

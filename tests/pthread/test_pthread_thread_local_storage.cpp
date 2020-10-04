@@ -51,9 +51,13 @@ int numThreadsToCreate = 32;
 
 void CreateThread(int i)
 {
-	int rc = pthread_create(&thread[i], NULL, ThreadMain, (void*)i);
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	int rc = pthread_create(&thread[i], &attr, ThreadMain, (void*)i);
 	if (emscripten_has_threading_support()) assert(rc == 0);
 	else assert(rc == EAGAIN);
+	pthread_attr_destroy(&attr);
 }
 
 int main()

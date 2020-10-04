@@ -13,10 +13,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#ifndef BITSPERPIXEL
-#define BITSPERPIXEL 32
-#endif
-
 int testImage(SDL_Renderer* renderer, const char* fileName) {
   SDL_Surface *image = IMG_Load(fileName);
   if (!image)
@@ -24,9 +20,9 @@ int testImage(SDL_Renderer* renderer, const char* fileName) {
      printf("IMG_Load: %s\n", IMG_GetError());
      return 0;
   }
-  assert(image->format->BitsPerPixel == BITSPERPIXEL);
-  assert(image->format->BytesPerPixel == BITSPERPIXEL / 8);
-  assert(image->pitch == BITSPERPIXEL / 8 * image->w);
+  assert(image->format->BitsPerPixel == 32);
+  assert(image->format->BytesPerPixel == 4);
+  assert(image->pitch == 4*image->w);
   int result = image->w;
 
 #ifndef NO_PRELOADED

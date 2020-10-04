@@ -18,9 +18,6 @@ int result = 1;
 void success()
 {
   REPORT_RESULT(result);
-#ifdef FORCE_EXIT
-  emscripten_force_exit(0);
-#endif
 }
 
 void test() {

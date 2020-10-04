@@ -1,8 +1,9 @@
 //===----------------------- config_elast.h -------------------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
@@ -11,7 +12,7 @@
 
 #include <__config>
 
-#if defined(_LIBCPP_MSVCRT_LIKE)
+#if defined(_LIBCPP_MSVCRT)
 #include <stdlib.h>
 #else
 #include <errno.h>
@@ -23,17 +24,15 @@
 #define _LIBCPP_ELAST __ELASTERROR
 #elif defined(__Fuchsia__)
 // No _LIBCPP_ELAST needed on Fuchsia
-#elif defined(__wasi__)
-// No _LIBCPP_ELAST needed on WASI
 #elif defined(__linux__) || defined(_LIBCPP_HAS_MUSL_LIBC)
 #define _LIBCPP_ELAST 4095
 #elif defined(__APPLE__)
 // No _LIBCPP_ELAST needed on Apple
-#elif defined(__EMSCRIPTEN__) // XXX EMSCRIPTEN added ELAST value
+#elif defined(__EMSCRIPTEN__) // XX EMSCRIPTEN added ELAST value
 #define _LIBCPP_ELAST 256
 #elif defined(__sun__)
 #define _LIBCPP_ELAST ESTALE
-#elif defined(_LIBCPP_MSVCRT_LIKE)
+#elif defined(_LIBCPP_MSVCRT)
 #define _LIBCPP_ELAST (_sys_nerr - 1)
 #else
 // Warn here so that the person doing the libcxx port has an easier time:

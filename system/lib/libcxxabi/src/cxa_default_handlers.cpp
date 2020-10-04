@@ -1,31 +1,28 @@
 //===------------------------- cxa_default_handlers.cpp -------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
 //
 //
 // This file implements the default terminate_handler and unexpected_handler.
 //===----------------------------------------------------------------------===//
 
+#include <stdexcept>
+#include <new>
 #include <exception>
-#include <stdlib.h>
 #include "abort_message.h"
 #include "cxxabi.h"
-#include "cxa_handlers.h"
-#include "cxa_exception.h"
+#include "cxa_handlers.hpp"
+#include "cxa_exception.hpp"
 #include "private_typeinfo.h"
-#include "include/atomic_support.h"
 
-#if !defined(LIBCXXABI_SILENT_TERMINATE)
-
-_LIBCPP_SAFE_STATIC
 static const char* cause = "uncaught";
 
 __attribute__((noreturn))
-static void demangling_terminate_handler()
+static void default_terminate_handler()
 {
-#ifndef _LIBCXXABI_NO_EXCEPTIONS
     // If there might be an uncaught exception
     using namespace __cxxabiv1;
     __cxa_eh_globals* globals = __cxa_get_globals_fast();
@@ -37,10 +34,13 @@ static void demangling_terminate_handler()
         {
             _Unwind_Exception* unwind_exception =
                 reinterpret_cast<_Unwind_Exception*>(exception_header + 1) - 1;
-            if (__isOurExceptionClass(unwind_exception))
+            bool native_exception =
+                (unwind_exception->exception_class   & get_vendor_and_language) == 
+                                 (kOurExceptionClass & get_vendor_and_language);
+            if (native_exception)
             {
                 void* thrown_object =
-                    __getExceptionClass(unwind_exception) == kOurDependentExceptionClass ?
+                    unwind_exception->exception_class == kOurDependentExceptionClass ?
                         ((__cxa_dependent_exception*)exception_header)->primaryException :
                         exception_header + 1;
                 const __shim_type_info* thrown_type =
@@ -53,13 +53,13 @@ static void demangling_terminate_handler()
                 const char* name = __cxa_demangle(thrown_type->name(), buf, &len, &status);
                 if (status != 0)
                     name = thrown_type->name();
-#else // __EMSCRIPTEN__ - we can demangle stack traces ourselves, best not to
-      //                  pull in all of libcxxabi-demangle for just this file
+#else // __EMSCRIPTEN__ - we can demangle stack traces ourselves, best not to pull in all of libcxxabi-demangle() for this file
                 const char* name = thrown_type->name();
-#endif
+#endif // __EMSCRIPTEN__
+
                 // If the uncaught exception can be caught with std::exception&
                 const __shim_type_info* catch_type =
-                    static_cast<const __shim_type_info*>(&typeid(std::exception));
+				 static_cast<const __shim_type_info*>(&typeid(std::exception));
                 if (catch_type->can_catch(thrown_type, thrown_object))
                 {
                     // Include the what() message from the exception
@@ -77,33 +77,27 @@ static void demangling_terminate_handler()
                 abort_message("terminating with %s foreign exception", cause);
         }
     }
-#endif
     // Else just note that we're terminating
     abort_message("terminating");
 }
 
 __attribute__((noreturn))
-static void demangling_unexpected_handler()
+static void default_unexpected_handler() 
 {
     cause = "unexpected";
     std::terminate();
 }
 
-static constexpr std::terminate_handler default_terminate_handler = demangling_terminate_handler;
-static constexpr std::terminate_handler default_unexpected_handler = demangling_unexpected_handler;
-#else
-static constexpr std::terminate_handler default_terminate_handler = ::abort;
-static constexpr std::terminate_handler default_unexpected_handler = std::terminate;
-#endif
 
 //
 // Global variables that hold the pointers to the current handler
 //
-_LIBCXXABI_DATA_VIS
-_LIBCPP_SAFE_STATIC std::terminate_handler __cxa_terminate_handler = default_terminate_handler;
+std::terminate_handler  __cxa_terminate_handler = default_terminate_handler;
+std::unexpected_handler __cxa_unexpected_handler = default_unexpected_handler;
 
-_LIBCXXABI_DATA_VIS
-_LIBCPP_SAFE_STATIC std::unexpected_handler __cxa_unexpected_handler = default_unexpected_handler;
+// In the future these will become:
+// std::atomic<std::terminate_handler>  __cxa_terminate_handler(default_terminate_handler);
+// std::atomic<std::unexpected_handler> __cxa_unexpected_handler(default_unexpected_handler);
 
 namespace std
 {
@@ -111,19 +105,21 @@ namespace std
 unexpected_handler
 set_unexpected(unexpected_handler func) _NOEXCEPT
 {
-    if (func == 0)
-        func = default_unexpected_handler;
-    return __libcpp_atomic_exchange(&__cxa_unexpected_handler, func,
-                                    _AO_Acq_Rel);
+	if (func == 0)
+		func = default_unexpected_handler;
+	return __sync_swap(&__cxa_unexpected_handler, func);
+//  Using of C++11 atomics this should be rewritten
+//  return __cxa_unexpected_handler.exchange(func, memory_order_acq_rel);
 }
 
 terminate_handler
 set_terminate(terminate_handler func) _NOEXCEPT
 {
-    if (func == 0)
-        func = default_terminate_handler;
-    return __libcpp_atomic_exchange(&__cxa_terminate_handler, func,
-                                    _AO_Acq_Rel);
+	if (func == 0)
+		func = default_terminate_handler;
+	return __sync_swap(&__cxa_terminate_handler, func);
+//  Using of C++11 atomics this should be rewritten
+//  return __cxa_terminate_handler.exchange(func, memory_order_acq_rel);
 }
 
 }

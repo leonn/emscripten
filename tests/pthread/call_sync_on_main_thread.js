@@ -1,14 +1,13 @@
 mergeInto(LibraryManager.library, {
   // Test accessing a DOM element on the main thread.
-  // This function returns the inner text of the given element
+  // This function returns the inner text of the div by ID "status"
   // Because it accesses the DOM, it must be called on the main thread.
-  getDomElementContents__proxy: 'sync',
-  getDomElementContents__sig: 'viii',
-  getDomElementContents__deps: ['$stringToNewUTF8'],
-  getDomElementContents: function(domElementSelector) {
-    var selector = UTF8ToString(domElementSelector);
-    var text = document.querySelector(selector).innerHTML;
-    return stringToNewUTF8(text);
+  getDomElementInnerHTML__proxy: 'sync',
+  getDomElementInnerHTML__sig: 'viii',
+  getDomElementInnerHTML: function(domElementId, dst, size) {
+    var id = UTF8ToString(domElementId);
+    var text = document.getElementById(id).innerHTML;
+    stringToUTF8(text, dst, size);
   },
 
   receivesAndReturnsAnInteger__proxy: 'sync',
@@ -18,12 +17,12 @@ mergeInto(LibraryManager.library, {
   },
 
   isThisInWorker: function() {
-    return typeof ENVIRONMENT_IS_WORKER !== 'undefined' && ENVIRONMENT_IS_WORKER;
+    return ENVIRONMENT_IS_WORKER;
   },
 
   isThisInWorkerOnMainThread__proxy: 'sync',
   isThisInWorkerOnMainThread__sig: 'i',
   isThisInWorkerOnMainThread: function() {
-    return typeof ENVIRONMENT_IS_WORKER !== 'undefined' && ENVIRONMENT_IS_WORKER;
+    return ENVIRONMENT_IS_WORKER;
   }
 });

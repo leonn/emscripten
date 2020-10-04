@@ -5,7 +5,8 @@
  * found in the LICENSE file.
  */
 
-#pragma once
+#ifndef __emscripten_vr_h__
+#define __emscripten_vr_h__
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -64,7 +65,7 @@ typedef struct VRDisplayCapabilities {
     int32_t hasPosition;
     int32_t hasExternalDisplay;
     int32_t canPresent;
-    uint32_t maxLayers;
+    unsigned long maxLayers;
 } VRDisplayCapabilities;
 
 #define VR_LAYER_DEFAULT_LEFT_BOUNDS {0.0f, 0.0f, 0.5f, 1.0f}
@@ -107,8 +108,8 @@ typedef struct VRPose {
 typedef struct VREyeParameters {
     VRVector3 offset;
 
-    uint32_t renderWidth;
-    uint32_t renderHeight;
+    unsigned long renderWidth;
+    unsigned long renderHeight;
 } VREyeParameters;
 
 typedef struct VRFrameData {
@@ -150,4 +151,6 @@ extern bool emscripten_vr_display_presenting(VRDisplayHandle handle);
 
 #ifdef __cplusplus
 } // ~extern "C"
+#endif
+
 #endif

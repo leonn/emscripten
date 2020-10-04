@@ -1,10 +1,9 @@
-/**
- * @license
- * Copyright 2013 The Emscripten Authors
- * SPDX-License-Identifier: MIT
- */
-
 /*
+ * Copyright 2013 The Emscripten Authors.  All rights reserved.
+ * Emscripten is available under two separate licenses, the MIT license and the
+ * University of Illinois/NCSA Open Source License.  Both these licenses can be
+ * found in the LICENSE file.
+ *
  * EMSCRIPTEN GLFW 2.x-3.x emulation.
  * It tries to emulate the behavior described in
  * http://www.glfw.org/docs/latest/
@@ -36,8 +35,10 @@
  */
 
 var LibraryGLFW = {
-  $GLFW_Window__docs: '/** @constructor */',
-  $GLFW_Window: function(id, width, height, title, monitor, share) {
+  $GLFW__deps: ['emscripten_get_now', '$GL', '$Browser'],
+  $GLFW: {
+
+    Window: function(id, width, height, title, monitor, share) {
       this.id = id;
       this.x = 0;
       this.y = 0;
@@ -79,12 +80,6 @@ var LibraryGLFW = {
       this.userptr = null;
     },
 
-  $GLFW__deps: ['emscripten_get_now', '$GL', '$Browser', '$GLFW_Window',
-#if FILESYSTEM
-    , '$FS'
-#endif
-  ],
-  $GLFW: {
     WindowFromId: function(id) {
       if (id <= 0 || !GLFW.windows) return null;
       return GLFW.windows[id - 1];
@@ -192,7 +187,7 @@ var LibraryGLFW = {
         case 0xDC:return 92; // DOM_VK_BACKSLASH -> GLFW_KEY_BACKSLASH
         case 0xDD:return 93; // DOM_VK_CLOSE_BRACKET -> GLFW_KEY_RIGHT_BRACKET
         case 0xC0:return 94; // DOM_VK_BACK_QUOTE -> GLFW_KEY_GRAVE_ACCENT
-
+        
 #if USE_GLFW == 2
         //#define GLFW_KEY_SPECIAL      256
         case 0x1B:return (256+1); // DOM_VK_ESCAPE -> GLFW_KEY_ESC
@@ -361,11 +356,11 @@ var LibraryGLFW = {
       if (charCode == 0 || (charCode >= 0x00 && charCode <= 0x1F)) return;
 
 #if USE_GLFW == 2
-      {{{ makeDynCall('vii', 'GLFW.active.charFunc') }}}(charCode, 1);
+      Module['dynCall_vii'](GLFW.active.charFunc, charCode, 1);
 #endif
 
 #if USE_GLFW == 3
-      {{{ makeDynCall('vii', 'GLFW.active.charFunc') }}}(GLFW.active.id, charCode);
+      Module['dynCall_vii'](GLFW.active.charFunc, GLFW.active.id, charCode);
 #endif
     },
 
@@ -383,12 +378,12 @@ var LibraryGLFW = {
       if (!GLFW.active.keyFunc) return;
 
 #if USE_GLFW == 2
-      {{{ makeDynCall('vii', 'GLFW.active.keyFunc') }}}(key, status);
+      Module['dynCall_vii'](GLFW.active.keyFunc, key, status);
 #endif
 
 #if USE_GLFW == 3
       if (repeat) status = 2; // GLFW_REPEAT
-      {{{ makeDynCall('viiiii', 'GLFW.active.keyFunc') }}}(GLFW.active.id, key, keyCode, status, GLFW.getModBits(GLFW.active));
+      Module['dynCall_viiiii'](GLFW.active.keyFunc, GLFW.active.id, key, keyCode, status, GLFW.getModBits(GLFW.active));
 #endif
     },
 
@@ -433,11 +428,11 @@ var LibraryGLFW = {
       if (event.target != Module["canvas"] || !GLFW.active.cursorPosFunc) return;
 
 #if USE_GLFW == 2
-      {{{ makeDynCall('vii', 'GLFW.active.cursorPosFunc') }}}(Browser.mouseX, Browser.mouseY);
+      Module['dynCall_vii'](GLFW.active.cursorPosFunc, Browser.mouseX, Browser.mouseY);
 #endif
 
 #if USE_GLFW == 3
-      {{{ makeDynCall('vidd', 'GLFW.active.cursorPosFunc') }}}(GLFW.active.id, Browser.mouseX, Browser.mouseY);
+      Module['dynCall_vidd'](GLFW.active.cursorPosFunc, GLFW.active.id, Browser.mouseX, Browser.mouseY);
 #endif
     },
 
@@ -461,7 +456,7 @@ var LibraryGLFW = {
       if (event.target != Module["canvas"] || !GLFW.active.cursorEnterFunc) return;
 
 #if USE_GLFW == 3
-      {{{ makeDynCall('vii', 'GLFW.active.cursorEnterFunc') }}}(GLFW.active.id, 1);
+      Module['dynCall_vii'](GLFW.active.cursorEnterFunc, GLFW.active.id, 1);
 #endif
     },
 
@@ -471,7 +466,7 @@ var LibraryGLFW = {
       if (event.target != Module["canvas"] || !GLFW.active.cursorEnterFunc) return;
 
 #if USE_GLFW == 3
-      {{{ makeDynCall('vii', 'GLFW.active.cursorEnterFunc') }}}(GLFW.active.id, 0);
+      Module['dynCall_vii'](GLFW.active.cursorEnterFunc, GLFW.active.id, 0);
 #endif
     },
 
@@ -496,11 +491,11 @@ var LibraryGLFW = {
       if (!GLFW.active.mouseButtonFunc) return;
 
 #if USE_GLFW == 2
-      {{{ makeDynCall('vii', 'GLFW.active.mouseButtonFunc') }}}(eventButton, status);
+      Module['dynCall_vii'](GLFW.active.mouseButtonFunc, eventButton, status);
 #endif
 
 #if USE_GLFW == 3
-      {{{ makeDynCall('viiii', 'GLFW.active.mouseButtonFunc') }}}(GLFW.active.id, eventButton, status, GLFW.getModBits(GLFW.active));
+      Module['dynCall_viiii'](GLFW.active.mouseButtonFunc, GLFW.active.id, eventButton, status, GLFW.getModBits(GLFW.active));
 #endif
     },
 
@@ -523,7 +518,7 @@ var LibraryGLFW = {
       if (!GLFW.active || !GLFW.active.scrollFunc || event.target != Module['canvas']) return;
 
 #if USE_GLFW == 2
-      {{{ makeDynCall('vi', 'GLFW.active.scrollFunc') }}}(GLFW.wheelPos);
+      Module['dynCall_vi'](GLFW.active.scrollFunc, GLFW.wheelPos);
 #endif
 
 #if USE_GLFW == 3
@@ -537,7 +532,7 @@ var LibraryGLFW = {
         sy = event.deltaY;
       }
 
-      {{{ makeDynCall('vidd', 'GLFW.active.scrollFunc') }}}(GLFW.active.id, sx, sy);
+      Module['dynCall_vidd'](GLFW.active.scrollFunc, GLFW.active.id, sx, sy);
 #endif
 
       event.preventDefault();
@@ -592,11 +587,11 @@ var LibraryGLFW = {
       if (!GLFW.active.windowSizeFunc) return;
 
 #if USE_GLFW == 2
-      {{{ makeDynCall('vii', 'GLFW.active.windowSizeFunc') }}}(GLFW.active.width, GLFW.active.height);
+      Module['dynCall_vii'](GLFW.active.windowSizeFunc, GLFW.active.width, GLFW.active.height);
 #endif
 
 #if USE_GLFW == 3
-      {{{ makeDynCall('viii', 'GLFW.active.windowSizeFunc') }}}(GLFW.active.id, GLFW.active.width, GLFW.active.height);
+      Module['dynCall_viii'](GLFW.active.windowSizeFunc, GLFW.active.id, GLFW.active.width, GLFW.active.height);
 #endif
     },
 
@@ -606,8 +601,41 @@ var LibraryGLFW = {
       if (!GLFW.active.framebufferSizeFunc) return;
 
 #if USE_GLFW == 3
-      {{{ makeDynCall('viii', 'GLFW.active.framebufferSizeFunc') }}}(GLFW.active.id, GLFW.active.width, GLFW.active.height);
+      Module['dynCall_viii'](GLFW.active.framebufferSizeFunc, GLFW.active.id, GLFW.active.width, GLFW.active.height);
 #endif
+    },
+
+    requestFullscreen: function() {
+      var RFS = Module["canvas"]['requestFullscreen'] ||
+                Module["canvas"]['mozRequestFullScreen'] ||
+                Module["canvas"]['webkitRequestFullScreen'] ||
+                (function() {});
+      RFS.apply(Module["canvas"], []);
+    },
+
+    requestFullScreen: function() {
+      err('GLFW.requestFullScreen() is deprecated. Please call GLFW.requestFullscreen instead.');
+      GLFW.requestFullScreen = function() {
+        return GLFW.requestFullscreen();
+      }
+      return GLFW.requestFullscreen();
+    },
+
+    exitFullscreen: function() {
+      var CFS = document['exitFullscreen'] ||
+                document['cancelFullScreen'] ||
+                document['mozCancelFullScreen'] ||
+                document['webkitCancelFullScreen'] ||
+          (function() {});
+      CFS.apply(document, []);
+    },
+
+    cancelFullScreen: function() {
+      err('GLFW.cancelFullScreen() is deprecated. Please call GLFW.exitFullscreen instead.');
+      GLFW.cancelFullScreen = function() {
+        return GLFW.exitFullscreen();
+      }
+      return GLFW.exitFullscreen();
     },
 
     getTime: function() {
@@ -620,7 +648,7 @@ var LibraryGLFW = {
       var win = GLFW.WindowFromId(winid);
       if (!win) return;
 
-      win.title = UTF8ToString(title);
+      win.title = Pointer_stringify(title);
       if (GLFW.active.id == win.id) {
         document.title = win.title;
       }
@@ -648,15 +676,15 @@ var LibraryGLFW = {
             if (!GLFW.joys[joy]) {
               console.log('glfw joystick connected:',joy);
               GLFW.joys[joy] = {
-                id: allocate(intArrayFromString(gamepad.id), ALLOC_NORMAL),
+                id: allocate(intArrayFromString(gamepad.id), 'i8', ALLOC_NORMAL),
                 buttonsCount: gamepad.buttons.length,
                 axesCount: gamepad.axes.length,
-                buttons: allocate(new Array(gamepad.buttons.length), ALLOC_NORMAL),
+                buttons: allocate(new Array(gamepad.buttons.length), 'i8', ALLOC_NORMAL),
                 axes: allocate(new Array(gamepad.axes.length*4), 'float', ALLOC_NORMAL)
               };
 
               if (GLFW.joystickFunc) {
-                {{{ makeDynCall('vii', 'GLFW.joystickFunc') }}}(joy, 0x00040001); // GLFW_CONNECTED
+                Module['dynCall_vii'](GLFW.joystickFunc, joy, 0x00040001); // GLFW_CONNECTED
               }
             }
 
@@ -674,7 +702,7 @@ var LibraryGLFW = {
               console.log('glfw joystick disconnected',joy);
 
               if (GLFW.joystickFunc) {
-                {{{ makeDynCall('vii', 'GLFW.joystickFunc') }}}(joy, 0x00040002); // GLFW_DISCONNECTED
+                Module['dynCall_vii'](GLFW.joystickFunc, joy, 0x00040002); // GLFW_DISCONNECTED
               }
 
               _free(GLFW.joys[joy].id);
@@ -690,50 +718,38 @@ var LibraryGLFW = {
 
     setKeyCallback: function(winid, cbfun) {
       var win = GLFW.WindowFromId(winid);
-      if (!win) return null;
-      var prevcbfun = win.keyFunc;
+      if (!win) return;
       win.keyFunc = cbfun;
-      return prevcbfun;
     },
 
     setCharCallback: function(winid, cbfun) {
       var win = GLFW.WindowFromId(winid);
-      if (!win) return null;
-      var prevcbfun = win.charFunc;
+      if (!win) return;
       win.charFunc = cbfun;
-      return prevcbfun;
     },
 
     setMouseButtonCallback: function(winid, cbfun) {
       var win = GLFW.WindowFromId(winid);
-      if (!win) return null;
-      var prevcbfun = win.mouseButtonFunc;
+      if (!win) return;
       win.mouseButtonFunc = cbfun;
-      return prevcbfun;
     },
 
     setCursorPosCallback: function(winid, cbfun) {
       var win = GLFW.WindowFromId(winid);
-      if (!win) return null;
-      var prevcbfun = win.cursorPosFunc;
+      if (!win) return;
       win.cursorPosFunc = cbfun;
-      return prevcbfun;
     },
 
     setScrollCallback: function(winid, cbfun) {
       var win = GLFW.WindowFromId(winid);
-      if (!win) return null;
-      var prevcbfun = win.scrollFunc;
+      if (!win) return;
       win.scrollFunc = cbfun;
-      return prevcbfun;
     },
 
     setDropCallback: function(winid, cbfun) {
       var win = GLFW.WindowFromId(winid);
-      if (!win) return null;
-      var prevcbfun = win.dropFunc;
+      if (!win) return;
       win.dropFunc = cbfun;
-      return prevcbfun;
     },
 
     onDrop: function(event) {
@@ -742,8 +758,7 @@ var LibraryGLFW = {
 
       event.preventDefault();
 
-#if FILESYSTEM
-      var filenames = allocate(new Array(event.dataTransfer.files.length*4), ALLOC_NORMAL);
+      var filenames = allocate(new Array(event.dataTransfer.files.length*4), 'i8*', ALLOC_NORMAL);
       var filenamesArray = [];
       var count = event.dataTransfer.files.length;
 
@@ -765,7 +780,7 @@ var LibraryGLFW = {
           var data = e.target.result;
           FS.writeFile(path, new Uint8Array(data));
           if (++written === count) {
-            {{{ makeDynCall('viii', 'GLFW.active.dropFunc') }}}(GLFW.active.id, count, filenames);
+            Module['dynCall_viii'](GLFW.active.dropFunc, GLFW.active.id, count, filenames);
 
             for (var i = 0; i < filenamesArray.length; ++i) {
               _free(filenamesArray[i]);
@@ -775,7 +790,7 @@ var LibraryGLFW = {
         };
         reader.readAsArrayBuffer(file);
 
-        var filename = allocate(intArrayFromString(path), ALLOC_NORMAL);
+        var filename = allocate(intArrayFromString(path), 'i8', ALLOC_NORMAL);
         filenamesArray.push(filename);
         setValue(filenames + i*4, filename, 'i8*');
       }
@@ -783,7 +798,6 @@ var LibraryGLFW = {
       for (var i = 0; i < count; ++i) {
         save(event.dataTransfer.files[i]);
       }
-#endif // FILESYSTEM
 
       return false;
     },
@@ -797,36 +811,29 @@ var LibraryGLFW = {
 
     setWindowSizeCallback: function(winid, cbfun) {
       var win = GLFW.WindowFromId(winid);
-      if (!win) return null;
-      var prevcbfun = win.windowSizeFunc;
+      if (!win) return;
       win.windowSizeFunc = cbfun;
-
+     
 #if USE_GLFW == 2
       // As documented in GLFW2 API (http://www.glfw.org/GLFWReference27.pdf#page=22), when size
       // callback function is set, it will be called with the current window size before this
       // function returns.
       // GLFW3 on the over hand doesn't have this behavior (https://github.com/glfw/glfw/issues/62).
-      if (!win.windowSizeFunc) return null;
-      {{{ makeDynCall('vii', 'win.windowSizeFunc') }}}(win.width, win.height);
+      if (!win.windowSizeFunc) return;
+      Module['dynCall_vii'](win.windowSizeFunc, win.width, win.height);
 #endif
-
-      return prevcbfun;
     },
 
     setWindowCloseCallback: function(winid, cbfun) {
       var win = GLFW.WindowFromId(winid);
-      if (!win) return null;
-      var prevcbfun = win.windowCloseFunc;
+      if (!win) return;
       win.windowCloseFunc = cbfun;
-      return prevcbfun;
     },
 
     setWindowRefreshCallback: function(winid, cbfun) {
       var win = GLFW.WindowFromId(winid);
-      if (!win) return null;
-      var prevcbfun = win.windowRefreshFunc;
+      if (!win) return;
       win.windowRefreshFunc = cbfun;
-      return prevcbfun;
     },
 
     onClickRequestPointerLock: function(e) {
@@ -916,13 +923,8 @@ var LibraryGLFW = {
         wy = win.y;
       }
 
-      if (x) {
-        setValue(x, wx, 'i32');
-      }
-
-      if (y) {
-        setValue(y, wy, 'i32');
-      }
+      setValue(x, wx, 'i32');
+      setValue(y, wy, 'i32');
     },
 
     setWindowPos: function(winid, x, y) {
@@ -942,13 +944,8 @@ var LibraryGLFW = {
         wh = win.height;
       }
 
-      if (width) {
-        setValue(width, ww, 'i32');
-      }
-
-      if (height) {
-        setValue(height, wh, 'i32');
-      }
+      setValue(width, ww, 'i32');
+      setValue(height, wh, 'i32');
     },
 
     setWindowSize: function(winid, width, height) {
@@ -957,9 +954,9 @@ var LibraryGLFW = {
 
       if (GLFW.active.id == win.id) {
         if (width == screen.width && height == screen.height) {
-          Browser.requestFullscreen();
+          GLFW.requestFullscreen();
         } else {
-          Browser.exitFullscreen();
+          GLFW.exitFullscreen();
           Browser.setCanvasSize(width, height);
           win.width = width;
           win.height = height;
@@ -969,19 +966,17 @@ var LibraryGLFW = {
       if (!win.windowSizeFunc) return;
 
 #if USE_GLFW == 2
-      {{{ makeDynCall('vii', 'win.windowSizeFunc') }}}(width, height);
+      Module['dynCall_vii'](win.windowSizeFunc, width, height);
 #endif
 
 #if USE_GLFW == 3
-      {{{ makeDynCall('viii', 'win.windowSizeFunc') }}}(win.id, width, height);
+      Module['dynCall_viii'](win.windowSizeFunc, win.id, width, height);
 #endif
     },
 
     createWindow: function(width, height, title, monitor, share) {
       var i, id;
-      for (i = 0; i < GLFW.windows.length && GLFW.windows[i] !== null; i++) {
-        // no-op
-      }
+      for (i = 0; i < GLFW.windows.length && GLFW.windows[i] !== null; i++);
       if (i > 0) throw "glfwCreateWindow only supports one window at time currently";
 
       // id for window
@@ -991,21 +986,19 @@ var LibraryGLFW = {
       if (width <= 0 || height <= 0) return 0;
 
       if (monitor) {
-        Browser.requestFullscreen();
+        GLFW.requestFullscreen();
       } else {
         Browser.setCanvasSize(width, height);
       }
 
       // Create context when there are no existing alive windows
-      for (i = 0; i < GLFW.windows.length && GLFW.windows[i] == null; i++) {
-        // no-op
-      }
+      for (i = 0; i < GLFW.windows.length && GLFW.windows[i] == null; i++);
       if (i == GLFW.windows.length) {
         var contextAttributes = {
           antialias: (GLFW.hints[0x0002100D] > 1), // GLFW_SAMPLES
           depth: (GLFW.hints[0x00021005] > 0),     // GLFW_DEPTH_BITS
           stencil: (GLFW.hints[0x00021006] > 0),   // GLFW_STENCIL_BITS
-          alpha: (GLFW.hints[0x00021004] > 0)      // GLFW_ALPHA_BITS
+          alpha: (GLFW.hints[0x00021004] > 0)      // GLFW_ALPHA_BITS 
         }
 #if OFFSCREEN_FRAMEBUFFER
         // TODO: Make GLFW explicitly aware of whether it is being proxied or not, and set these to true only when proxying is being performed.
@@ -1018,7 +1011,7 @@ var LibraryGLFW = {
       if (!Module.ctx) return 0;
 
       // Get non alive id
-      var win = new GLFW_Window(id, width, height, title, monitor, share);
+      var win = new GLFW.Window(id, width, height, title, monitor, share);
 
       // Set window to array
       if (id - 1 == GLFW.windows.length) {
@@ -1037,7 +1030,7 @@ var LibraryGLFW = {
 
 #if USE_GLFW == 3
       if (win.windowCloseFunc)
-        {{{ makeDynCall('vi', 'win.windowCloseFunc') }}}(win.id);
+        Module['dynCall_vi'](win.windowCloseFunc, win.id);
 #endif
 
       GLFW.windows[win.id - 1] = null;
@@ -1109,10 +1102,6 @@ var LibraryGLFW = {
     window.addEventListener("keypress", GLFW.onKeyPress, true);
     window.addEventListener("keyup", GLFW.onKeyup, true);
     window.addEventListener("blur", GLFW.onBlur, true);
-    Module["canvas"].addEventListener("touchmove", GLFW.onMousemove, true);
-    Module["canvas"].addEventListener("touchstart", GLFW.onMouseButtonDown, true);
-    Module["canvas"].addEventListener("touchcancel", GLFW.onMouseButtonUp, true);
-    Module["canvas"].addEventListener("touchend", GLFW.onMouseButtonUp, true);
     Module["canvas"].addEventListener("mousemove", GLFW.onMousemove, true);
     Module["canvas"].addEventListener("mousedown", GLFW.onMouseButtonDown, true);
     Module["canvas"].addEventListener("mouseup", GLFW.onMouseButtonUp, true);
@@ -1136,10 +1125,6 @@ var LibraryGLFW = {
     window.removeEventListener("keypress", GLFW.onKeyPress, true);
     window.removeEventListener("keyup", GLFW.onKeyup, true);
     window.removeEventListener("blur", GLFW.onBlur, true);
-    Module["canvas"].removeEventListener("touchmove", GLFW.onMousemove, true);
-    Module["canvas"].removeEventListener("touchstart", GLFW.onMouseButtonDown, true);
-    Module["canvas"].removeEventListener("touchcancel", GLFW.onMouseButtonUp, true);
-    Module["canvas"].removeEventListener("touchend", GLFW.onMouseButtonUp, true);
     Module["canvas"].removeEventListener("mousemove", GLFW.onMousemove, true);
     Module["canvas"].removeEventListener("mousedown", GLFW.onMouseButtonDown, true);
     Module["canvas"].removeEventListener("mouseup", GLFW.onMouseButtonUp, true);
@@ -1182,10 +1167,9 @@ var LibraryGLFW = {
     GLFW.initialTime = GLFW.getTime() - time;
   },
 
-  glfwExtensionSupported__deps: ['glGetString'],
   glfwExtensionSupported: function(extension) {
     if (!GLFW.extensions) {
-      GLFW.extensions = UTF8ToString(_glGetString(0x1F03)).split(' ');
+      GLFW.extensions = Pointer_stringify(_glGetString(0x1F03)).split(' ');
     }
 
     if (GLFW.extensions.indexOf(extension) != -1) return 1;
@@ -1210,15 +1194,13 @@ var LibraryGLFW = {
 #if USE_GLFW == 3
   glfwGetVersionString: function() {
     if (!GLFW.versionString) {
-      GLFW.versionString = allocate(intArrayFromString("3.2.1 JS WebGL Emscripten"), ALLOC_NORMAL);
+      GLFW.versionString = allocate(intArrayFromString("3.2.1 JS WebGL Emscripten"), 'i8', ALLOC_NORMAL);
     }
     return GLFW.versionString;
   },
 
   glfwSetErrorCallback: function(cbfun) {
-    var prevcbfun = GLFW.errorFunc;
     GLFW.errorFunc = cbfun;
-    return prevcbfun;
   },
 
   glfwWaitEventsTimeout: function(timeout) {},
@@ -1228,8 +1210,7 @@ var LibraryGLFW = {
   glfwGetMonitors: function(count) {
     setValue(count, 1, 'i32');
     if (!GLFW.monitors) {
-      GLFW.monitors = {{{ makeMalloc('glfwGetMonitors', Runtime.POINTER_SIZE) }}};
-      setValue(GLFW.monitors, 1, 'i32');
+      GLFW.monitors = allocate([1, 0, 0, 0], 'i32', ALLOC_NORMAL);
     }
     return GLFW.monitors;
   },
@@ -1254,15 +1235,13 @@ var LibraryGLFW = {
 
   glfwGetMonitorName: function(mon) {
     if (!GLFW.monitorString) {
-      GLFW.monitorString = allocate(intArrayFromString("HTML5 WebGL Canvas"), ALLOC_NORMAL);
+      GLFW.monitorString = allocate(intArrayFromString("HTML5 WebGL Canvas"), 'i8', ALLOC_NORMAL);
     }
     return GLFW.monitorString;
   },
 
   glfwSetMonitorCallback: function(cbfun) {
-    var prevcbfun = GLFW.monitorFunc;
     GLFW.monitorFunc = cbfun;
-    return prevcbfun;
   },
 
   // TODO: implement
@@ -1343,25 +1322,16 @@ var LibraryGLFW = {
       wh = win.height;
     }
 
-    if (width) {
-      setValue(width, ww, 'i32');
-    }
-
-    if (height) {
-      setValue(height, wh, 'i32');
-    }
+    setValue(width, ww, 'i32');
+    setValue(height, wh, 'i32');
   },
 
   glfwIconifyWindow: function(winid) {
-#if ASSERTIONS
-    warnOnce('glfwIconifyWindow is not implemented');
-#endif
+    GLFW.iconifyWindow(winid);
   },
 
   glfwRestoreWindow: function(winid) {
-#if ASSERTIONS
-    warnOnce('glfwRestoreWindow is not implemented');
-#endif
+    GLFW.restoreWindow(winid);
   },
 
   glfwShowWindow: function(winid) {},
@@ -1394,38 +1364,32 @@ var LibraryGLFW = {
 
   glfwSetWindowPosCallback: function(winid, cbfun) {
     var win = GLFW.WindowFromId(winid);
-    if (!win) return null;
-    var prevcbfun = win.windowPosFunc;
+    if (!win) return;
     win.windowPosFunc = cbfun;
-    return prevcbfun;
   },
 
   glfwSetWindowSizeCallback: function(winid, cbfun) {
-    return GLFW.setWindowSizeCallback(winid, cbfun);
+    GLFW.setWindowSizeCallback(winid, cbfun);
   },
 
   glfwSetWindowCloseCallback: function(winid, cbfun) {
-    return GLFW.setWindowCloseCallback(winid, cbfun);
+    GLFW.setWindowCloseCallback(winid, cbfun);
   },
 
   glfwSetWindowRefreshCallback: function(winid, cbfun) {
-    return GLFW.setWindowRefreshCallback(winid, cbfun);
+    GLFW.setWindowRefreshCallback(winid, cbfun);
   },
 
   glfwSetWindowFocusCallback: function(winid, cbfun) {
     var win = GLFW.WindowFromId(winid);
-    if (!win) return null;
-    var prevcbfun = win.windowFocusFunc;
+    if (!win) return;
     win.windowFocusFunc = cbfun;
-    return prevcbfun;
   },
 
   glfwSetWindowIconifyCallback: function(winid, cbfun) {
     var win = GLFW.WindowFromId(winid);
-    if (!win) return null;
-    var prevcbfun = win.windowIconifyFunc;
+    if (!win) return;
     win.windowIconifyFunc = cbfun;
-    return prevcbfun;
   },
 
   glfwSetWindowIcon: function(winid, count, images) {},
@@ -1452,10 +1416,8 @@ var LibraryGLFW = {
 
   glfwSetFramebufferSizeCallback: function(winid, cbfun) {
     var win = GLFW.WindowFromId(winid);
-    if (!win) return null;
-    var prevcbfun = win.framebufferSizeFunc;
+    if (!win) return;
     win.framebufferSizeFunc = cbfun;
-    return prevcbfun;
   },
 
   glfwGetInputMode: function(winid, mode) {
@@ -1499,33 +1461,31 @@ var LibraryGLFW = {
   },
 
   glfwSetKeyCallback: function(winid, cbfun) {
-    return GLFW.setKeyCallback(winid, cbfun);
+    GLFW.setKeyCallback(winid, cbfun);
   },
 
   glfwSetCharCallback: function(winid, cbfun) {
-    return GLFW.setCharCallback(winid, cbfun);
+    GLFW.setCharCallback(winid, cbfun);
   },
 
   glfwSetCharModsCallback: function(winid, cbfun) { throw "glfwSetCharModsCallback not implemented."; },
 
   glfwSetMouseButtonCallback: function(winid, cbfun) {
-    return GLFW.setMouseButtonCallback(winid, cbfun);
+    GLFW.setMouseButtonCallback(winid, cbfun);
   },
 
   glfwSetCursorPosCallback: function(winid, cbfun) {
-    return GLFW.setCursorPosCallback(winid, cbfun);
+    GLFW.setCursorPosCallback(winid, cbfun);
   },
 
   glfwSetCursorEnterCallback: function(winid, cbfun) {
     var win = GLFW.WindowFromId(winid);
-    if (!win) return null;
-    var prevcbfun = win.cursorEnterFunc;
+    if (!win) return;
     win.cursorEnterFunc = cbfun;
-    return prevcbfun;
   },
 
   glfwSetScrollCallback: function(winid, cbfun) {
-    return GLFW.setScrollCallback(winid, cbfun);
+    GLFW.setScrollCallback(winid, cbfun);
   },
 
   glfwVulkanSupported: function() {
@@ -1533,7 +1493,7 @@ var LibraryGLFW = {
   },
 
   glfwSetDropCallback: function(winid, cbfun) {
-    return GLFW.setDropCallback(winid, cbfun);
+    GLFW.setDropCallback(winid, cbfun);
   },
 
   glfwGetTimerValue: function() { throw "glfwGetTimerValue is not implemented."; },
@@ -1650,15 +1610,11 @@ var LibraryGLFW = {
   },
 
   glfwIconifyWindow: function() {
-#if ASSERTIONS
-    warnOnce('glfwIconifyWindow is not implemented');
-#endif
+    GLFW.iconifyWindow(GLFW.active.id);
   },
 
   glfwRestoreWindow: function() {
-#if ASSERTIONS
-    warnOnce('glfwRestoreWindow is not implemented');
-#endif
+    GLFW.restoreWindow(GLFW.active.id);
   },
 
   glfwSwapBuffers: function() {
@@ -1751,7 +1707,11 @@ var LibraryGLFW = {
   },
 
   glfwCreateThread: function(fun, arg) {
-    {{{ makeDynCall('vi', 'str') }}}(fun, arg);
+    var str = 'v';
+    for (var i in arg) {
+      str += 'i';
+    }
+    dynCall(str, fun, arg);
     // One single thread
     return 0;
   },

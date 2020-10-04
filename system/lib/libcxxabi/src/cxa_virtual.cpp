@@ -1,24 +1,31 @@
 //===-------------------------- cxa_virtual.cpp ---------------------------===//
 //
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//                     The LLVM Compiler Infrastructure
+//
+// This file is dual licensed under the MIT and the University of Illinois Open
+// Source Licenses. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
 #include "cxxabi.h"
 #include "abort_message.h"
 
-namespace __cxxabiv1 {
-extern "C" {
-_LIBCXXABI_FUNC_VIS _LIBCXXABI_NORETURN
+namespace __cxxabiv1
+{
+
+extern "C"
+{
+
+LIBCXXABI_NORETURN
 void __cxa_pure_virtual(void) {
-  abort_message("Pure virtual function called!");
+    abort_message("Pure virtual function called!");
 }
 
-_LIBCXXABI_FUNC_VIS _LIBCXXABI_NORETURN
+LIBCXXABI_NORETURN
 void __cxa_deleted_virtual(void) {
-  abort_message("Deleted virtual function called!");
+    abort_message("Deleted virtual function called!");
 }
-} // extern "C"
-} // abi
+
+}  // extern "C"
+
+}  // abi

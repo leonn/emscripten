@@ -53,6 +53,6 @@ int main() {
   RUN(unsigned short);
   printf("32\n");
   RUN(unsigned);
-  return 0;
+  return 1;
 }
 
