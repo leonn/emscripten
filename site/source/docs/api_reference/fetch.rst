@@ -262,7 +262,9 @@ state of the request.
 The emscripten_fetch_attr_t object has a timeoutMSecs field which allows
 specifying a timeout duration for the transfer. Additionally,
 emscripten_fetch_close() can be called at any time for asynchronous and waitable
-fetches to abort the download. The following example illustrates these fields
+fetches to abort the download (this is currently broken, see `#8234
+<https://github.com/emscripten-core/emscripten/issues/8234>`_).
+The following example illustrates these fields
 and the onprogress handler.
 
 .. code-block:: cpp
@@ -315,6 +317,8 @@ size, but will not contain the data bytes to the file.
 Streaming Downloads
 -------------------
 
+Note: This currently only works in Firefox as it uses 'moz-chunked-arraybuffer'.
+
 If the application does not need random seek access to the file, but is able to
 process the file in a streaming manner, it can use the
 EMSCRIPTEN_FETCH_STREAM_DATA flag to stream through the bytes in the file as
@@ -362,8 +366,36 @@ the desired subrange of the whole file. This is useful for example when a large
 package file contains multiple smaller ones at certain seek offsets, which can
 be dealt with separately.
 
-TODO: Example about how to perform HTTP Byte Range Requests to obtain parts of
-files.
+.. code-block:: cpp
+
+  #include <stdio.h>
+  #include <string.h>
+  #include <emscripten/fetch.h>
+
+  void downloadSucceeded(emscripten_fetch_t *fetch) {
+    printf("Finished downloading %llu bytes from URL %s.\n", fetch->numBytes, fetch->url);
+    // The data is now available at fetch->data[0] through fetch->data[fetch->numBytes-1];
+    emscripten_fetch_close(fetch); // Free data associated with the fetch.
+  }
+
+  void downloadFailed(emscripten_fetch_t *fetch) {
+    printf("Downloading %s failed, HTTP failure status code: %d.\n", fetch->url, fetch->status);
+    emscripten_fetch_close(fetch); // Also free data on failure.
+  }
+
+  int main() {
+    emscripten_fetch_attr_t attr;
+    emscripten_fetch_attr_init(&attr);
+    strcpy(attr.requestMethod, "GET");
+    attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
+    // Make a Range request to only fetch bytes 10 to 20
+    const char* headers[] = {"Range", "bytes=10-20"};
+    attr.requestHeaders = headers;
+    attr.onsuccess = downloadSucceeded;
+    attr.onerror = downloadFailed;
+    emscripten_fetch(&attr, "myfile.dat");
+  }
+
 
 TODO To Document
 ================

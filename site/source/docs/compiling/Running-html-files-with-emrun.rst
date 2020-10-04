@@ -58,7 +58,7 @@ To enumerate the list of browser aliases on your system, use the ``--list_browse
     - iexplore: Microsoft Internet Explorer 11.0.9600.16384
     - opera: Opera 18.0.1284.63
 
-.. note:: For your browser to be detected, it should be installed in the default install location on the system (``%ProgramFiles%`` on Windows and ``/Applications/`` on OSX) or by adding it to the ``PATH`` for the current user.
+.. note:: For your browser to be detected, it should be installed in the default install location on the system (``%ProgramFiles%`` on Windows and ``/Applications/`` on macOS) or by adding it to the ``PATH`` for the current user.
 
 You can pass the ``--browser <alias>`` option to launch with a given browser. For example, to run the *Firefox Nightly* browser you would call:
 
@@ -72,7 +72,10 @@ To launch using a browser's filename use:
 
   --browser /path/to/browser/executable page.html
 
-If you just want to launch a web server you can pass the ``--no_browser`` command line flag. In this case *emrun* will run the server without spawning the browser (this is similar to using Python's `SimpleHTTPServer <http://www.pythonforbeginners.com/modules-in-python/how-to-use-simplehttpserver/>`_).
+If you just want to launch a web server you can pass the ``--no_browser``
+command line flag. In this case *emrun* will run the server without spawning the
+browser (this is similar to using a
+:ref:`local webserver <faq-local-webserver>`).
 
 
 Security implications

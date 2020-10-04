@@ -35,7 +35,7 @@ int main()
   attrs.majorVersion = 2;
   attrs.minorVersion = 0;
 
-  EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context = emscripten_webgl_create_context( 0, &attrs );
+  EMSCRIPTEN_WEBGL_CONTEXT_HANDLE context = emscripten_webgl_create_context( "#canvas", &attrs );
   if (!context)
   {
     printf("Skipped: WebGL 2 is not supported.\n");
@@ -166,7 +166,7 @@ int main()
     DUMPUNIFORMBLOCKSTATUS(GL_UNIFORM_BLOCK_ACTIVE_UNIFORMS);
     GLint indices[16] = {};
     glGetActiveUniformBlockiv(program, i, GL_UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES, indices);
-    for(size_t i = 0; i < param; ++i)
+    for(GLint i = 0; i < param; ++i)
       printf("offset for index %d: %d\n", i, indices[i]);
   }
 

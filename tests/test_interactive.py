@@ -3,30 +3,41 @@
 # University of Illinois/NCSA Open Source License.  Both these licenses can be
 # found in the LICENSE file.
 
-from __future__ import print_function
+import json
 import os
 import shutil
+from runner import parameterized
+
+if __name__ == '__main__':
+  raise Exception('do not run this file directly; do something like: tests/runner.py interactive')
+
 from runner import BrowserCore, path_from_root
-from tools.shared import Popen, EMCC, PYTHON, WINDOWS, Building
+from tools.shared import Popen, EMCC, WINDOWS, which
 
 
 class interactive(BrowserCore):
   @classmethod
-  def setUpClass(self):
-    super(interactive, self).setUpClass()
-    self.browser_timeout = 60
+  def setUpClass(cls):
+    super(interactive, cls).setUpClass()
+    cls.browser_timeout = 60
     print()
     print('Running the interactive tests. Make sure the browser allows popups from localhost.')
     print()
 
   def test_html5_fullscreen(self):
-    self.btest(path_from_root('tests', 'test_html5_fullscreen.c'), expected='0', args=['-s', 'EXPORTED_FUNCTIONS=["_requestFullscreen","_enterSoftFullscreen","_main"]', '--shell-file', path_from_root('tests', 'test_html5_fullscreen.html')])
+    self.btest(path_from_root('tests', 'test_html5_fullscreen.c'), expected='0', args=['-s', 'DISABLE_DEPRECATED_FIND_EVENT_TARGET_BEHAVIOR=1', '-s', 'EXPORTED_FUNCTIONS=["_requestFullscreen","_enterSoftFullscreen","_main"]', '--shell-file', path_from_root('tests', 'test_html5_fullscreen.html')])
+
+  def test_html5_emscripten_exit_with_escape(self):
+    self.btest('test_html5_emscripten_exit_fullscreen.c', expected='1', args=['-DEXIT_WITH_F'])
+
+  def test_html5_emscripten_exit_fullscreen(self):
+    self.btest('test_html5_emscripten_exit_fullscreen.c', expected='1')
 
   def test_html5_mouse(self):
-    self.btest(path_from_root('tests', 'test_html5_mouse.c'), expected='0')
+    self.btest(path_from_root('tests', 'test_html5_mouse.c'), expected='0', args=['-s', 'DISABLE_DEPRECATED_FIND_EVENT_TARGET_BEHAVIOR=1'])
 
   def test_html5_pointerlockerror(self):
-    self.btest(path_from_root('tests', 'test_html5_pointerlockerror.c'), expected='0')
+    self.btest(path_from_root('tests', 'test_html5_pointerlockerror.c'), expected='0', args=['-s', 'DISABLE_DEPRECATED_FIND_EVENT_TARGET_BEHAVIOR=1'])
 
   def test_sdl_mousewheel(self):
     self.btest(path_from_root('tests', 'test_sdl_mousewheel.c'), expected='0')
@@ -36,6 +47,9 @@ class interactive(BrowserCore):
 
   def test_sdl_wm_togglefullscreen(self):
     self.btest('sdl_wm_togglefullscreen.c', expected='1')
+
+  def test_sdl_fullscreen_samecanvassize(self):
+    self.btest('sdl_fullscreen_samecanvassize.c', expected='1')
 
   def test_sdl2_togglefullscreen(self):
     self.btest('sdl_togglefullscreen.c', expected='1', args=['-s', 'USE_SDL=2'])
@@ -49,7 +63,7 @@ class interactive(BrowserCore):
     open(os.path.join(self.get_dir(), 'sdl_audio.c'), 'w').write(self.with_report_result(open(path_from_root('tests', 'sdl_audio.c')).read()))
 
     # use closure to check for a possible bug with closure minifying away newer Audio() attributes
-    Popen([PYTHON, EMCC, '-O2', '--closure', '1', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio.c'), '--preload-file', 'sound.ogg', '--preload-file', 'sound2.wav', '--embed-file', 'the_entertainer.ogg', '--preload-file', 'noise.ogg', '--preload-file', 'bad.ogg', '-o', 'page.html', '-s', 'EXPORTED_FUNCTIONS=["_main", "_play", "_play2"]']).communicate()
+    Popen([EMCC, '-O2', '--closure', '1', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio.c'), '--preload-file', 'sound.ogg', '--preload-file', 'sound2.wav', '--embed-file', 'the_entertainer.ogg', '--preload-file', 'noise.ogg', '--preload-file', 'bad.ogg', '-o', 'page.html', '-s', 'EXPORTED_FUNCTIONS=["_main", "_play", "_play2"]']).communicate()
     self.run_browser('page.html', '', '/report_result?1')
 
     # print('SDL2')
@@ -58,14 +72,14 @@ class interactive(BrowserCore):
     #        depended on fragile SDL1/SDL2 mixing, which stopped working with
     #        7a5744d754e00bec4422405a1a94f60b8e53c8fc (which just uncovered
     #        the existing problem)
-    # Popen([PYTHON, EMCC, '-O1', '--closure', '0', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio.c'), '--preload-file', 'sound.ogg', '--preload-file', 'sound2.wav', '--embed-file', 'the_entertainer.ogg', '--preload-file', 'noise.ogg', '--preload-file', 'bad.ogg', '-o', 'page.html', '-s', 'EXPORTED_FUNCTIONS=["_main", "_play", "_play2"]', '-s', 'USE_SDL=2', '-DUSE_SDL2']).communicate()
+    # Popen([EMCC, '-O1', '--closure', '0', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio.c'), '--preload-file', 'sound.ogg', '--preload-file', 'sound2.wav', '--embed-file', 'the_entertainer.ogg', '--preload-file', 'noise.ogg', '--preload-file', 'bad.ogg', '-o', 'page.html', '-s', 'EXPORTED_FUNCTIONS=["_main", "_play", "_play2"]', '-s', 'USE_SDL=2', '-DUSE_SDL2']).communicate()
     # self.run_browser('page.html', '', '/report_result?1')
 
   def test_sdl_audio_mix_channels(self):
     shutil.copyfile(path_from_root('tests', 'sounds', 'noise.ogg'), os.path.join(self.get_dir(), 'sound.ogg'))
     open(os.path.join(self.get_dir(), 'sdl_audio_mix_channels.c'), 'w').write(self.with_report_result(open(path_from_root('tests', 'sdl_audio_mix_channels.c')).read()))
 
-    Popen([PYTHON, EMCC, '-O2', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio_mix_channels.c'), '--preload-file', 'sound.ogg', '-o', 'page.html']).communicate()
+    Popen([EMCC, '-O2', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio_mix_channels.c'), '--preload-file', 'sound.ogg', '-o', 'page.html']).communicate()
     self.run_browser('page.html', '', '/report_result?1')
 
   def test_sdl_audio_mix(self):
@@ -74,7 +88,7 @@ class interactive(BrowserCore):
     shutil.copyfile(path_from_root('tests', 'sounds', 'noise.ogg'), os.path.join(self.get_dir(), 'noise.ogg'))
     open(os.path.join(self.get_dir(), 'sdl_audio_mix.c'), 'w').write(self.with_report_result(open(path_from_root('tests', 'sdl_audio_mix.c')).read()))
 
-    Popen([PYTHON, EMCC, '-O2', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio_mix.c'), '--preload-file', 'sound.ogg', '--preload-file', 'music.ogg', '--preload-file', 'noise.ogg', '-o', 'page.html']).communicate()
+    Popen([EMCC, '-O2', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio_mix.c'), '--preload-file', 'sound.ogg', '--preload-file', 'music.ogg', '--preload-file', 'noise.ogg', '-o', 'page.html']).communicate()
     self.run_browser('page.html', '', '/report_result?1')
 
   def test_sdl_audio_panning(self):
@@ -82,29 +96,58 @@ class interactive(BrowserCore):
     open(os.path.join(self.get_dir(), 'sdl_audio_panning.c'), 'w').write(self.with_report_result(open(path_from_root('tests', 'sdl_audio_panning.c')).read()))
 
     # use closure to check for a possible bug with closure minifying away newer Audio() attributes
-    Popen([PYTHON, EMCC, '-O2', '--closure', '1', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio_panning.c'), '--preload-file', 'the_entertainer.wav', '-o', 'page.html', '-s', 'EXPORTED_FUNCTIONS=["_main", "_play"]']).communicate()
+    Popen([EMCC, '-O2', '--closure', '1', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio_panning.c'), '--preload-file', 'the_entertainer.wav', '-o', 'page.html', '-s', 'EXPORTED_FUNCTIONS=["_main", "_play"]']).communicate()
     self.run_browser('page.html', '', '/report_result?1')
 
   def test_sdl_audio_beeps(self):
-    open(os.path.join(self.get_dir(), 'sdl_audio_beep.cpp'), 'w').write(self.with_report_result(open(path_from_root('tests', 'sdl_audio_beep.cpp')).read()))
-
+    open('sdl_audio_beep.cpp', 'w').write(self.with_report_result(open(path_from_root('tests', 'sdl_audio_beep.cpp')).read()))
     # use closure to check for a possible bug with closure minifying away newer Audio() attributes
-    Popen([PYTHON, EMCC, '-O2', '--closure', '1', '--minify', '0', os.path.join(self.get_dir(), 'sdl_audio_beep.cpp'), '-s', 'DISABLE_EXCEPTION_CATCHING=0', '-o', 'page.html']).communicate()
+    self.compile_btest(['sdl_audio_beep.cpp', '-O2', '--closure', '1', '--minify', '0', '-s', 'DISABLE_EXCEPTION_CATCHING=0', '-o', 'page.html'])
     self.run_browser('page.html', '', '/report_result?1')
+
+  def test_sdl2_mixer_wav(self):
+    shutil.copyfile(path_from_root('tests', 'sounds', 'the_entertainer.wav'), os.path.join(self.get_dir(), 'sound.wav'))
+    self.btest('sdl2_mixer_wav.c', expected='1', args=[
+      '-O2',
+      '-s', 'USE_SDL=2',
+      '-s', 'USE_SDL_MIXER=2',
+      '-s', 'INITIAL_MEMORY=33554432',
+      '--preload-file', 'sound.wav'
+    ])
+
+  @parameterized({
+    'wav': ([],         '0',            'the_entertainer.wav'),
+    'ogg': (['ogg'],    'MIX_INIT_OGG', 'alarmvictory_1.ogg'),
+    'mp3': (['mp3'],    'MIX_INIT_MP3', 'pudinha.mp3'),
+  })
+  def test_sdl2_mixer_music(self, formats, flags, music_name):
+    shutil.copyfile(path_from_root('tests', 'sounds', music_name), music_name)
+    self.btest('sdl2_mixer_music.c', expected='1', args=[
+      '-O2',
+      '--minify', '0',
+      '--preload-file', music_name,
+      '-DSOUND_PATH=' + json.dumps(music_name),
+      '-DFLAGS=' + flags,
+      '-s', 'USE_SDL=2',
+      '-s', 'USE_SDL_MIXER=2',
+      '-s', 'SDL2_MIXER_FORMATS=' + json.dumps(formats),
+      '-s', 'INITIAL_MEMORY=33554432'
+    ])
 
   def zzztest_sdl2_audio_beeps(self):
     open(os.path.join(self.get_dir(), 'sdl2_audio_beep.cpp'), 'w').write(self.with_report_result(open(path_from_root('tests', 'sdl2_audio_beep.cpp')).read()))
 
     # use closure to check for a possible bug with closure minifying away newer Audio() attributes
-    Popen([PYTHON, EMCC, '-O2', '--closure', '1', '--minify', '0', os.path.join(self.get_dir(), 'sdl2_audio_beep.cpp'), '-s', 'DISABLE_EXCEPTION_CATCHING=0', '-s', 'USE_SDL=2', '-o', 'page.html']).communicate()
+    Popen([EMCC, '-O2', '--closure', '1', '--minify', '0', os.path.join(self.get_dir(), 'sdl2_audio_beep.cpp'), '-s', 'DISABLE_EXCEPTION_CATCHING=0', '-s', 'USE_SDL=2', '-o', 'page.html']).communicate()
     self.run_browser('page.html', '', '/report_result?1')
 
   def test_openal_playback(self):
     shutil.copyfile(path_from_root('tests', 'sounds', 'audio.wav'), os.path.join(self.get_dir(), 'audio.wav'))
     open(os.path.join(self.get_dir(), 'openal_playback.cpp'), 'w').write(self.with_report_result(open(path_from_root('tests', 'openal_playback.cpp')).read()))
 
-    Popen([PYTHON, EMCC, '-O2', os.path.join(self.get_dir(), 'openal_playback.cpp'), '--preload-file', 'audio.wav', '-o', 'page.html']).communicate()
-    self.run_browser('page.html', '', '/report_result?1')
+    for args in [[], ['-s', 'USE_PTHREADS=1', '-s', 'PROXY_TO_PTHREAD=1']]:
+      Popen([EMCC, '-O2', os.path.join(self.get_dir(), 'openal_playback.cpp'), '--preload-file', 'audio.wav', '-o', 'page.html'] + args).communicate()
+      self.run_browser('page.html', '', '/report_result?1')
 
   def test_openal_buffers(self):
     self.btest('openal_buffers.c', '0', args=['--preload-file', path_from_root('tests', 'sounds', 'the_entertainer.wav') + '@/'],)
@@ -146,13 +189,13 @@ class interactive(BrowserCore):
     self.btest('openal_capture.c', expected='0')
 
   def get_freealut_library(self):
-    if WINDOWS and Building.which('cmake'):
+    if WINDOWS and which('cmake'):
       return self.get_library('freealut', os.path.join('hello_world.bc'), configure=['cmake', '.'], configure_args=['-DBUILD_TESTS=ON'])
     else:
       return self.get_library('freealut', [os.path.join('examples', '.libs', 'hello_world.bc'), os.path.join('src', '.libs', 'libalut.a')], make_args=['EXEEXT=.bc'])
 
   def test_freealut(self):
-    Popen([PYTHON, EMCC, '-O2'] + self.get_freealut_library() + ['-o', 'page.html']).communicate()
+    Popen([EMCC, '-O2'] + self.get_freealut_library() + ['-o', 'page.html']).communicate()
     self.run_browser('page.html', 'You should hear "Hello World!"')
 
   def test_vr(self):
@@ -177,10 +220,36 @@ class interactive(BrowserCore):
     self.btest('test_glfw_pointerlock.c', expected='1', args=['-s', 'USE_GLFW=3'])
 
   def test_glut_fullscreen(self):
+    self.skipTest('looks broken')
     self.btest('glut_fullscreen.c', expected='1', args=['-lglut', '-lGL'])
 
   def test_cpuprofiler_memoryprofiler(self):
     self.btest('hello_world_gles.c', expected='0', args=['-DLONGTEST=1', '-DTEST_MEMORYPROFILER_ALLOCATIONS_MAP=1', '-O2', '--cpuprofiler', '--memoryprofiler'])
 
   def test_threadprofiler(self):
-    self.btest('pthread/test_pthread_mandelbrot.cpp', expected='0', args=['-O2', '--threadprofiler', '-s', 'USE_PTHREADS=1', '-DTEST_THREAD_PROFILING=1', '-msse', '-s', 'PTHREAD_POOL_SIZE=16', '--shell-file', path_from_root('tests', 'pthread', 'test_pthread_mandelbrot_shell.html')])
+    self.btest('pthread/test_pthread_mandelbrot.cpp', expected='0', args=['-O2', '--threadprofiler', '-s', 'USE_PTHREADS=1', '-DTEST_THREAD_PROFILING=1', '-s', 'PTHREAD_POOL_SIZE=16', '--shell-file', path_from_root('tests', 'pthread', 'test_pthread_mandelbrot_shell.html')])
+
+  # Test that event backproxying works.
+  def test_html5_callbacks_on_calling_thread(self):
+    # TODO: Make this automatic by injecting mouse event in e.g. shell html file.
+    for args in [[], ['-DTEST_SYNC_BLOCKING_LOOP=1']]:
+      self.btest('html5_callbacks_on_calling_thread.c', expected='1', args=args + ['-s', 'DISABLE_DEPRECATED_FIND_EVENT_TARGET_BEHAVIOR=1', '-s', 'USE_PTHREADS=1', '-s', 'PROXY_TO_PTHREAD=1'])
+
+  # Test that it is possible to register HTML5 event callbacks on either main browser thread, or application main thread,
+  # and that the application can manually proxy the event from main browser thread to the application main thread, to
+  # implement event suppression capabilities.
+  def test_html5_callback_on_two_threads(self):
+    # TODO: Make this automatic by injecting enter key press in e.g. shell html file.
+    for args in [[], ['-s', 'USE_PTHREADS=1', '-s', 'PROXY_TO_PTHREAD=1']]:
+      self.btest('html5_event_callback_in_two_threads.c', expected='1', args=args)
+
+  # Test that emscripten_hide_mouse() is callable from pthreads (and proxies to main thread to obtain the proper window.devicePixelRatio value).
+  def test_emscripten_hide_mouse(self):
+    for args in [[], ['-s', 'USE_PTHREADS=1']]:
+      self.btest('emscripten_hide_mouse.c', expected='0', args=args)
+
+  # Tests that WebGL can be run on another thread after first having run it on one thread (and that thread has exited). The intent of this is to stress graceful deinit semantics, so that it is not possible to "taint" a Canvas
+  # to a bad state after a rendering thread in a program quits and restarts. (perhaps e.g. between level loads, or subsystem loads/restarts or something like that)
+  def test_webgl_offscreen_canvas_in_two_pthreads(self):
+    for args in [['-s', 'OFFSCREENCANVAS_SUPPORT=1', '-DTEST_OFFSCREENCANVAS=1'], ['-s', 'OFFSCREEN_FRAMEBUFFER=1']]:
+      self.btest('gl_in_two_pthreads.cpp', expected='1', args=args + ['-s', 'USE_PTHREADS=1', '-lGL', '-s', 'GL_DEBUG=1', '-s', 'PROXY_TO_PTHREAD=1'])

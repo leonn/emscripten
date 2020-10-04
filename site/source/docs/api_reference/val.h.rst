@@ -6,7 +6,7 @@ val.h (under-construction)
 
 .. COMMENT (Not rendered) : This created from val.h header file on 10 Aug 2014-03
 
-The *Embind* C++ class :cpp:class:`emscripten::val` (defined in `val.h <https://github.com/kripken/emscripten/blob/master/system/include/emscripten/val.h>`_) is used to *transliterate* JavaScript code to C++.
+The *Embind* C++ class :cpp:class:`emscripten::val` (defined in `val.h <https://github.com/emscripten-core/emscripten/blob/master/system/include/emscripten/val.h>`_) is used to *transliterate* JavaScript code to C++.
 
 Guide material for this class can be found in :ref:`embind-val-guide`.
 
@@ -33,6 +33,19 @@ Guide material for this class can be found in :ref:`embind-val-guide`.
     val xhr = val::global("XMLHttpRequest").new_();
     xhr.call("open", std::string("GET"), std::string("http://url"));
 
+  You can test whether the ``open`` method call was successful using :cpp:func:`~emscripten::val::operator[]` to read an object property, then :cpp:func:`~emscripten::val::as` to coerce the type:
+
+  .. code:: cpp
+
+    const char* state;
+    switch (xhr["readyState"].as<int>()) {
+    case 0:
+      state = "UNSENT"; break;
+    case 1:
+      state = "OPENED"; break;
+    default:
+      state = "etc";
+    }
 
   See :ref:`embind-val-guide` for other examples.
 
@@ -148,13 +161,6 @@ Guide material for this class can be found in :ref:`embind-val-guide`.
     Destructor. **HamishW**-Replace with further description or delete comment.
 
 
-  .. cpp:function:: val(const val& v)
-
-    **HamishW**-Replace with description.
-
-    :param const val& v: **HamishW**-Replace with description.
-
-
   .. cpp:function:: val& operator=(val&& v)
 
     **HamishW**-Replace with description.
@@ -248,6 +254,15 @@ Guide material for this class can be found in :ref:`embind-val-guide`.
 
     :param val v: **HamishW**-Replace with description.
     :returns: **HamishW**-Replace with description.
+
+
+  .. cpp:function:: val await() const
+
+    Pauses the C++ to ``await`` the ``Promise`` / thenable.
+
+    :returns: The fulfilled value.
+
+    This method requires :ref:`Asyncify` to be enabled.
 
 
 .. cpp:type: EMSCRIPTEN_SYMBOL(name)

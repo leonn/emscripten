@@ -42,52 +42,51 @@ Options that are modified or new in *emcc* are listed below:
 ``-O0``
   No optimizations (default). This is the recommended setting for starting to port a project, as it includes various assertions.
 
+  This and other optimization settings are meaningful both during compile and
+  during link. During compile it affects LLVM optimizations, and during link it
+  affects final optimization of the code in Binaryen as well as optimization of
+  the JS. (For fast incremental builds ``-O0`` is best, while for release you
+  should link with something higher.)
+
 .. _emcc-O1:
 
 ``-O1``
-  Simple optimizations. These include using **asm.js**, LLVM ``-O1`` optimizations, relooping, removing runtime assertions and C++ exception catching, and enabling ``-s ALIASING_FUNCTION_POINTERS=1``.  This is the recommended setting when you want a reasonably optimized build that is generated as quickly as possible (it builds much faster than ``-O2``).
-
-  .. note::
-
-    - For details on the effects of different optimization levels, see ``apply_opt_level()`` in `tools/shared.py <https://github.com/kripken/emscripten/blob/master/tools/shared.py>`_ and also `src/settings.js <https://github.com/kripken/emscripten/blob/master/src/settings.js>`_.
-    - To re-enable C++ exception catching, use :ref:`-s DISABLE_EXCEPTION_CATCHING=0 <optimizing-code-exception-catching>`.
+  Simple optimizations. During the compile step these include LLVM ``-O1`` optimizations. During the link step this does not include various runtime assertions in JS that `-O0` would do.
 
 .. _emcc-O2:
 
 ``-O2``
-  Like ``-O1``, but with various JavaScript-level optimizations and LLVM ``-O3`` optimizations.
+  Like ``-O1``, but enables more optimizations. During link this will also enable various JavaScript optimizations.
 
-  .. note:: This is a reasonable setting for a release build.
-
-  .. note:: These JavaScript optimizations can reduce code size by removing things that the compiler does not see being used, in particular, parts of the runtime may be stripped if they are not exported on the ``Module`` object. The compiler is aware of code in :ref:`--pre-js <emcc-pre-js>` and :ref:`--post-js <emcc-post-js>`, so you can safely use the runtime from there. Alternatively, you can use ``EXTRA_EXPORTED_RUNTIME_METHODS``, see `src/settings.js <https://github.com/kripken/emscripten/blob/master/src/settings.js>`_.
+  .. note:: These JavaScript optimizations can reduce code size by removing things that the compiler does not see being used, in particular, parts of the runtime may be stripped if they are not exported on the ``Module`` object. The compiler is aware of code in :ref:`--pre-js <emcc-pre-js>` and :ref:`--post-js <emcc-post-js>`, so you can safely use the runtime from there. Alternatively, you can use ``EXTRA_EXPORTED_RUNTIME_METHODS``, see `src/settings.js <https://github.com/emscripten-core/emscripten/blob/master/src/settings.js>`_.
 
 .. _emcc-O3:
 
 ``-O3``
-  Like ``-O2``, but with additional JavaScript optimizations that can take a significant amount of compilation time.
+  Like ``-O2``, but with additional optimizations that may take longer to run.
 
   .. note:: This is a good setting for a release build.
 
 .. _emcc-Os:
 
 ``-Os``
-  Like ``-O3``, but with extra optimizations that reduce code size at the expense of performance. This can affect both bitcode generation and JavaScript.
+  Like ``-O3``, but focuses more on code size (and may make tradeoffs with speed). This can affect both wasm and JavaScript.
 
 .. _emcc-Oz:
 
 ``-Oz``
-  Like ``-Os``, but reduces code size even further. This can affect both bitcode generation and JavaScript.
-
-  For JavaScript, this turns on some code size reduction optimizations that can take a significant amount of compilation time.
+  Like ``-Os``, but reduces code size even further, and may take longer to run. This can affect both wasm and JavaScript.
 
   .. note:: For more tips on optimizing your code, see :ref:`Optimizing-Code`.
 
 .. _emcc-s-option-value:
 
-``-s OPTION=VALUE``
-  JavaScript code generation option passed into the Emscripten compiler. For the available options, see `src/settings.js <https://github.com/kripken/emscripten/blob/master/src/settings.js>`_.
+``-s OPTION[=VALUE]``
+  Emscripten build options. For the available options, see `src/settings.js <https://github.com/emscripten-core/emscripten/blob/master/src/settings.js>`_.
 
   .. note:: You can prefix boolean options with ``NO_`` to reverse them. For example, ``-s EXIT_RUNTIME=1`` is the same as ``-s NO_EXIT_RUNTIME=0``.
+
+  .. note:: If no value is specifed it will default to ``1``.
 
   .. note:: For options that are lists, you need quotation marks (") around the list in most shells (to avoid errors being raised). Two examples are shown below:
 
@@ -96,85 +95,71 @@ Options that are modified or new in *emcc* are listed below:
       -s RUNTIME_LINKED_LIBS="['liblib.so']"
       -s "RUNTIME_LINKED_LIBS=['liblib.so']"
 
-  You can also specify that the value of an option will be read from a specified JSON-formatted file. For example, the following option sets the ``DEAD_FUNCTIONS`` option with the contents of the file at **path/to/file**.
+  You can also specify that the value of an option will be read from a specified JSON-formatted file. For example, the following option sets the ``EXPORTED_FUNCTIONS`` option with the contents of the file at **path/to/file**.
 
   ::
 
-    -s DEAD_FUNCTIONS=@/path/to/file
+    -s EXPORTED_FUNCTIONS=@/path/to/file
 
   .. note::
 
     - In this case the file might contain a JSON-formatted list of functions: ``["_func1", "func2"]``.
     - The specified file path must be absolute, not relative.
 
+  .. note:: Options can be specified as a single argument without a space
+            between the ``-s`` and option name.  e.g. ``-sFOO=1``.
+
 .. _emcc-g:
 
 ``-g``
   Preserve debug information.
 
-  - When compiling to bitcode, this is the same as in *Clang* and *gcc* (it adds debug information to the object files).
-  - When compiling from source to JavaScript or bitcode to JavaScript, it is equivalent to :ref:`-g3 <emcc-g3>` (discards LLVM debug info including C/C++ line numbers, but otherwise keeps as much debug information as possible). Use :ref:`-g4 <emcc-g4>` to get line number debugging information in JavaScript.
+  - When compiling to object files, this is the same as in *Clang* and *gcc*, it adds debug information to the object files.
+  - When linking, this is equivalent to :ref:`-g3 <emcc-g3>`.
+
+``-gseparate-dwarf[=FILENAME]``
+  Preserve debug information, but in a separate file on the side. This is the
+  same as ``-g``, but the main file will contain no debug info. Instead, debug
+  info will be present in a file on the side, in ``FILENAME`` if provided,
+  otherwise the same as the wasm file but with suffix ``.debug.wasm``. While
+  the main file contains no debug info, it does contain a URL to where the
+  debug file is, so that devtools can find it. You can use
+  ``-s SEPARATE_DWARF_URL=URL`` to customize that location (this is useful if
+  you want to host it on a different server, for example).
 
 .. _emcc-gN:
 
 ``-g<level>``
-  Controls how much debug information is kept when compiling from bitcode to JavaScript. Each level builds on the previous level:
+  Controls the level of debuggability. Each level builds on the previous one:
 
     -
       .. _emcc-g0:
 
-      ``-g0``: Make no effort to keep code debuggable. Will discard LLVM debug information (this is done by default in :ref:`-01 <emcc-O1>` and higher).
+      ``-g0``: Make no effort to keep code debuggable.
 
     -
       .. _emcc-g1:
 
-      ``-g1``: Preserve whitespace (do not minify).
-
-        .. code-block:: javascript
-
-          function a(a, b) {
-            a = a | 0;
-            b = b | 0;
-            f(a + b | 0);
-          }
+      ``-g1``: When linking, preserve whitespace in JavaScript.
 
     -
       .. _emcc-g2:
 
-      ``-g2``: Preserve function names.
-
-        .. code-block:: javascript
-
-          function _addAndPrint(a, b) {
-            a = a | 0;
-            b = b | 0;
-            _printAnInteger(a + b | 0); // _printAnInteger is human readable.
-          }
+      ``-g2``: When linking, preserve function names in compiled code.
 
     -
       .. _emcc-g3:
 
-      ``-g3``: Preserve variable names (this is the same as :ref:`-g <emcc-g>`).
-
-        .. code-block:: javascript
-
-          function _addAndPrint($left, $right) {
-            $left = $left | 0;
-            $right = $right | 0;
-            _printAnInteger($left + $right | 0);
-          }
-
-        .. note:: Variable names in the output will not necessarily match the original variable names in source. They are, however, usually similar enough to infer the purpose of the variables.
+      ``-g3``: When compiling to object files, keep debug info, including JS whitespace, function names, and LLVM debug info if any (this is the same as :ref:`-g <emcc-g>`).
 
     .. _emcc-g4:
 
-    - ``-g4``: Preserve LLVM debug information. This is the highest level of debuggability. If ``-g`` was used when compiling the C/C++ sources, this shows line number debug comments, and generates source maps.
+    - ``-g4``: When linking, generate a source map using LLVM debug information (which must be present in object files, i.e., they should have been compiled with ``-g``).
 
       .. note::
 
-        - This debugging level may make compilation at optimization level :ref:`-O1 <emcc-O1>` and above significantly slower, because JavaScript optimization will be limited to one core (the default in ``-O0``).
-        - Source maps allow you to view and debug the *C/C++ source code* in your browser's debugger! This works in Firefox, Chrome and Safari.
-
+        - Source maps allow you to view and debug the *C/C++ source code* in your browser's debugger!
+        - This debugging level may make compilation significantly slower (this is why we only do it on ``-g4``).
 
 .. _emcc-profiling:
 
@@ -194,18 +179,6 @@ Options that are modified or new in *emcc* are listed below:
 
   .. note:: This is only relevant when :term:`minifying` global names, which happens in ``-O2`` and above, and when no ``-g`` option was specified to prevent minification.
 
-.. _emcc-js-opts:
-
-``--js-opts <level>``
-  Enables JavaScript optimizations, relevant when we generate JavaScript. Possible ``level`` values are:
-
-    - ``0``: Prevent JavaScript optimizer from running.
-    - ``1``: Use JavaScript optimizer (default).
-
-  You normally don't need to specify this option, as ``-O`` with an optimization level will set a good value.
-
-  .. note:: Some options might override this flag (e.g. ``EMTERPRETIFY``, ``DEAD_FUNCTIONS``, ``OUTLINING_LIMIT``, ``SAFE_HEAP`` and ``SPLIT_MEMORY`` override the value with ``js-opts=1``), because they depend on the js-optimizer.
-
 .. _emcc-llvm-opts:
 
 ``--llvm-opts <level>``
@@ -222,20 +195,10 @@ Options that are modified or new in *emcc* are listed below:
 
   You normally don't need to specify this option, as ``-O`` with an optimization level will set a good value.
 
-.. _emcc-llvm-lto:
+.. _emcc-lto:
 
-``--llvm-lto <level>``
-  Enables LLVM link-time optimizations (LTO). Possible ``level`` values are:
-
-    - ``0``: No LLVM LTO (default).
-    - ``1``: LLVM LTO is performed.
-    - ``2``: Combine all the bitcode and run LLVM opt on it using the specified ``--llvm-opts``. This optimizes across modules, but is not the same as normal LTO.
-    - ``3``: Does level ``2`` and then level ``1``.
-
-  .. note::
-
-    - If LLVM optimizations are not run (see ``--llvm-opts``), this setting has no effect.
-    - LLVM LTO is not perfectly stable yet, and can cause code to behave incorrectly.
+``-flto``
+  Enables link-time optimizations (LTO).
 
 .. _emcc-closure:
 
@@ -251,7 +214,7 @@ Options that are modified or new in *emcc* are listed below:
     - Consider using ``-s MODULARIZE=1`` when using closure, as it minifies globals to names that might conflict with others in the global scope. ``MODULARIZE`` puts all the output into a function (see ``src/settings.js``).
     - Closure will minify the name of `Module` itself, by default! Using ``MODULARIZE`` will solve that as well. Another solution is to make sure a global variable called `Module` already exists before the closure-compiled code runs, because then it will reuse that variable.
     - If closure compiler hits an out-of-memory, try adjusting ``JAVA_HEAP_SIZE`` in the environment (for example, to 4096m for 4GB).
-    - Closure is only run if JavaScript opts are being done (``-O2`` or above, or ``--js-opts 1``).
+    - Closure is only run if JavaScript opts are being done (``-O2`` or above).
 
 
 .. _emcc-pre-js:
@@ -264,7 +227,20 @@ Options that are modified or new in *emcc* are listed below:
 .. _emcc-post-js:
 
 ``--post-js <file>``
-  Like `--pre-js``, but emits a file *after* the emitted code.
+  Like ``--pre-js``, but emits a file *after* the emitted code.
+
+``--extern-pre-js <file>``
+  Specify a file whose contents are prepended to the JavaScript output. This
+  file is prepended to the final JavaScript output, *after* all other
+  work has been done, including optimization, optional ``MODULARIZE``-ation,
+  instrumentation like ``SAFE_HEAP``, etc. This is the same as prepending
+  this file after ``emcc`` finishes running, and is just a convenient
+  way to do that. (For comparison, ``--pre-js`` and ``--post-js`` optimize the
+  code together with everything else, keep it in the same scope if running
+  `MODULARIZE`, etc.).
+
+``--extern-post-js <file>``
+  Like ``--extern-pre-js``, but appends to the end.
 
 .. _emcc-embed-file:
 
@@ -286,7 +262,7 @@ Options that are modified or new in *emcc* are listed below:
 
   .. note:: This option is similar to :ref:`--embed-file <emcc-embed-file>`, except that it is only relevant when generating HTML (it uses asynchronous binary :term:`XHRs <XHR>`), or JavaScript that will be used in a web page.
 
-  *emcc* runs `tools/file_packager.py <https://github.com/kripken/emscripten/blob/master/tools/file_packager.py>`_ to do the actual packaging of embedded and preloaded files. You can run the file packager yourself if you want (see :ref:`packaging-files-file-packager`). You should then put the output of the file packager in an emcc ``--pre-js``, so that it executes before your main compiled code.
+  *emcc* runs `tools/file_packager.py <https://github.com/emscripten-core/emscripten/blob/master/tools/file_packager.py>`_ to do the actual packaging of embedded and preloaded files. You can run the file packager yourself if you want (see :ref:`packaging-files-file-packager`). You should then put the output of the file packager in an emcc ``--pre-js``, so that it executes before your main compiled code.
 
   For more information about the ``--preload-file`` options, see :ref:`packaging-files`.
 
@@ -306,7 +282,7 @@ Options that are modified or new in *emcc* are listed below:
 
   .. note::
 
-    - See `src/shell.html <https://github.com/kripken/emscripten/blob/master/src/shell.html>`_ and `src/shell_minimal.html <https://github.com/kripken/emscripten/blob/master/src/shell_minimal.html>`_ for examples.
+    - See `src/shell.html <https://github.com/emscripten-core/emscripten/blob/master/src/shell.html>`_ and `src/shell_minimal.html <https://github.com/emscripten-core/emscripten/blob/master/src/shell_minimal.html>`_ for examples.
     - This argument is ignored if a target other than HTML is specified using the ``-o`` option.
 
 .. _emcc-source-map-base:
@@ -360,37 +336,48 @@ Options that are modified or new in *emcc* are listed below:
   If using this in combination with ``--clear-cache``, be sure to specify
   this argument first.
 
-  The Emscripten cache defaults to being located in the path name stored
-  in the ``EM_CACHE`` environment variable or ``~/.emscripten_cache``.
+  The Emscripten cache defaults to ``emscripten/cache`` but can be overridden
+  using the ``EM_CACHE`` environment variable or ``CACHE`` config setting.
 
 .. _emcc-clear-cache:
 
 ``--clear-cache``
-  Manually clears the cache of compiled Emscripten system libraries (libc++, libc++abi, libc).
+  Manually clears the cache of compiled Emscripten system libraries (libc++,
+  libc++abi, libc).
 
-  This is normally handled automatically, but if you update LLVM in-place (instead of having a different directory for a new version), the caching mechanism can get confused. Clearing the cache can fix weird problems related to cache incompatibilities, like *Clang* failing to link with library files. This also clears other cached data. After the cache is cleared, this process will exit.
+  This is normally handled automatically, but if you update LLVM in-place
+  (instead of having a different directory for a new version), the caching
+  mechanism can get confused. Clearing the cache can fix weird problems related
+  to cache incompatibilities, like *Clang* failing to link with library files.
+  This also clears other cached data. After the cache is cleared, this process
+  will exit.
+
+  By default this will also clear any download ports since the ports directory
+  is usually within the cache directory.
 
 .. _emcc-clear-ports:
 
 ``--clear-ports``
-  Manually clears the local copies of ports from the Emscripten Ports repos (sdl2, etc.). This also clears the cache, to remove their builds.
+  Manually clears the local copies of ports from the Emscripten Ports repos
+  (sdl2, etc.). This also clears the cache, to remove their builds.
 
-  You should only need to do this if a problem happens and you want all ports that you use to be downloaded and built from scratch. After this operation is complete, this process will exit.
+  You should only need to do this if a problem happens and you want all ports
+  that you use to be downloaded and built from scratch. After this operation is
+  complete, this process will exit.
 
 .. _emcc-show-ports:
 
 ``--show-ports``
   Shows the list of available projects in the Emscripten Ports repos. After this operation is complete, this process will exit.
 
-.. _emcc-save-bc:
-
-``--save-bc PATH``
-  When compiling to JavaScript or HTML, this option will save a copy of the bitcode to the specified path. The bitcode will include all files being linked after link-time optimizations have been performed (if any), including standard libraries.
-
 .. _emcc-memory-init-file:
 
 ``--memory-init-file <on>``
-  Specifies whether to emit a separate memory initialization file. Possible ``on`` values are:
+  Specifies whether to emit a separate memory initialization file.
+
+      .. note:: Note that this is only relevant when *not* emitting wasm, as wasm embeds the memory init data in the wasm binary.
+
+  Possible ``on`` values are:
 
     - ``0``: Do not emit a separate memory initialization file. Instead keep the static initialization inside the generated JavaScript as text. This is the default setting if compiling with -O0 or -O1 link-time optimization flags.
     - ``1``: Emit a separate memory initialization file in binary format. This is more efficient than storing it as text inside JavaScript, but does mean you have another file to publish. The binary file will also be loaded asynchronously, which means ``main()`` will not be called until the file is downloaded and applied; you cannot call any C functions until it arrives. This is the default setting when compiling with -O2 or higher.
@@ -402,6 +389,8 @@ Options that are modified or new in *emcc* are listed below:
 
 ``-Wwarn-absolute-paths``
   Enables warnings about the use of absolute paths in ``-I`` and ``-L`` command line directives. This is used to warn against unintentional use of absolute paths, which is sometimes dangerous when referring to nonportable local system headers.
+
+.. _proxy-to-worker:
 
 ``--proxy-to-worker``
   Runs the main application code in a worker, proxying events to it and output from it. If emitting HTML, this emits a **.html** file, and a separate **.js** file containing the JavaScript to be run in a worker. If emitting JavaScript, the target file name contains the part to be run on the main thread, while a second **.js** file with suffix ".worker.js" will contain the worker portion.
@@ -423,7 +412,10 @@ Options that are modified or new in *emcc* are listed below:
 .. _emcc-config:
 
 ``--em-config``
-  Specifies the location of the **.emscripten** configuration file for the current compiler run. If not specified, the environment variable ``EM_CONFIG`` is first read for this location. If neither are specified, the default location **~/.emscripten** is used.
+  Specifies the location of the **.emscripten** configuration file.  If not
+  specified emscripten will search for ``.emscripten`` first in the emscripten
+  directory itself, and then in the user's home directory (``~/.emscripten``).
+  This can be overridden using the ``EM_CONFIG`` environment variable.
 
 ``--default-obj-ext .ext``
   Specifies the file suffix to generate if the location of a directory name is passed to the ``-o`` directive.
@@ -436,17 +428,21 @@ Options that are modified or new in *emcc* are listed below:
 
 
 ``--valid-abspath path``
-  Whitelist an absolute path to prevent warnings about absolute include paths.
+  Note an allowed absolute path, which we should not warn about (absolute
+  include paths normally are warned about, since they may refer to the
+  local system headers etc. which we need to avoid when cross-compiling).
 
 .. _emcc-o-target:
 
 ``-o <target>``
   The ``target`` file name extension defines the output type to be generated:
 
-    - <name> **.js** : JavaScript.
-    - <name> **.html** : HTML + separate JavaScript file (**<name>.js**). Having the separate JavaScript file improves page load time.
-    - <name> **.bc** : LLVM bitcode (default).
-    - <name> **.o** : LLVM bitcode (same as .bc).
+    - <name> **.js** : JavaScript (+ separate **<name>.wasm** file if emitting WebAssembly). (default)
+    - <name> **.mjs** : ES6 JavaScript module (+ separate **<name>.wasm** file if emitting WebAssembly).
+    - <name> **.html** : HTML + separate JavaScript file (**<name>.js**; + separate **<name>.wasm** file if emitting WebAssembly).
+    - <name> **.bc** : LLVM bitcode.
+    - <name> **.o** : WebAssembly object file (unless fastcomp or -flto is used in which case it will be in LLVM bitcode format).
+    - <name> **.wasm** : WebAssembly without JavaScript support code ("standalone wasm"; this enables ``STANDALONE_WASM``).
 
   .. note:: If ``--memory-init-file`` is used, a **.mem** file will be created in addition to the generated **.js** and/or **.html** file.
 
@@ -454,9 +450,6 @@ Options that are modified or new in *emcc* are listed below:
 
 ``-c``
   Tells *emcc* to generate LLVM bitcode (which can then be linked with other bitcode files), instead of compiling all the way to JavaScript.
-
-``--separate-asm``
-  Emits asm.js in one file, and the rest of the code in another, and emits HTML that loads the asm.js first, in order to reduce memory load during startup. See :ref:`optimizing-code-separating_asm`.
 
 ``--output_eol windows|linux``
   Specifies the line ending to generate for the text files that are outputted. If "--output_eol windows" is passed, the final output files will have Windows \r\n line endings in them. With "--output_eol linux", the final generated files will be written with Unix \n line endings.
@@ -472,17 +465,11 @@ Environment variables
 *emcc* is affected by several environment variables, as listed below:
 
   - ``EMMAKEN_JUST_CONFIGURE``
-  - ``EMMAKEN_JUST_CONFIGURE_RECURSE``
-  - ``EMCONFIGURE_JS``
-  - ``CONFIGURE_CC``
-  - ``EMMAKEN_CXX``
-  - ``EMMAKEN_CXX``
-  - ``EMMAKEN_COMPILER``
   - ``EMMAKEN_CFLAGS``
   - ``EMCC_DEBUG``
-        - ``EMCC_CLOSURE_ARGS`` : arguments to be passed to *Closure Compiler*
+  - ``EMCC_CLOSURE_ARGS`` : arguments to be passed to *Closure Compiler*
 
-Search for 'os.environ' in `emcc.py <https://github.com/kripken/emscripten/blob/master/emcc.py>`_ to see how these are used. The most interesting is possibly ``EMCC_DEBUG``, which forces the compiler to dump its build and temporary files to a temporary directory where they can be reviewed.
+Search for 'os.environ' in `emcc.py <https://github.com/emscripten-core/emscripten/blob/master/emcc.py>`_ to see how these are used. The most interesting is possibly ``EMCC_DEBUG``, which forces the compiler to dump its build and temporary files to a temporary directory where they can be reviewed.
 
 
 .. todo:: In case we choose to document them properly in future, below are some of the :ref:`-s <emcc-s-option-value>` options that are documented in the site are listed below. Note that this is not exhaustive by any means:
@@ -495,8 +482,6 @@ Search for 'os.environ' in `emcc.py <https://github.com/kripken/emscripten/blob/
 
   - ASSERTIONS
   - SAFE_HEAP
-  - AGGRESSIVE_VARIABLE_ELIMINATION=1
   - -s DISABLE_EXCEPTION_CATCHING=0.
   - INLINING_LIMIT=
-  - OUTLINING_LIMIT
 

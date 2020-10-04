@@ -15,11 +15,11 @@ See the :ref:`Emscripten Tutorial <Tutorial>` and :ref:`emcc <emccdoc>`.
 Why do I get multiple errors building basic code and the tests?
 ===============================================================
 
-All the tests in the :ref:`Emscripten test suite <emscripten-test-suite>` are known to build and pass on the **master** branch, so if these are failing it is likely that there is some problem with your environment.
+All the tests in the :ref:`Emscripten test suite <emscripten-test-suite>` are known to build and pass on our test infrastructure, so if you see failures locally it is likely that there is some problem with your environment. (Rarely, there may be temporary breakage, but never on a tagged release version.)
 
-First call ``./emcc -v``, which runs basic sanity checks and prints out useful environment information. If that doesn't help, follow the instructions in :ref:`verifying-the-emscripten-environment`.
+First call ``emcc -v``, which runs basic sanity checks and prints out useful environment information. If that doesn't help, follow the instructions in :ref:`verifying-the-emscripten-environment`.
 
-You might also want to go through the :ref:`Tutorial` again, as this is updated as Emscripten changes.
+You might also want to go through the :ref:`Tutorial` again, as it is updated as Emscripten changes.
 
 
 I tried something: why doesn’t it work?
@@ -44,31 +44,16 @@ Why is code compilation slow?
 
 Emscripten makes some trade-offs that make the generated code faster and smaller, at the cost of longer compilation times. For example, we build parts of the standard library along with your code, which enables some additional optimizations, but takes a little longer to compile.
 
-.. note:: You can determine what compilation steps take longest by compiling with ``EMCC_DEBUG=1`` in the environment and then reviewing the debug logs (by default in ``/tmp/emscripten_temp``). Note that compiling in debug mode takes longer than normal, because we print out a lot of intermediate steps to disk.
+.. note:: You can determine what compilation steps take longest by compiling with ``EMCC_DEBUG=1`` in the environment and then reviewing the debug logs (by default in ``/tmp/emscripten_temp``). Note that compiling in debug mode takes longer than normal, because we print out a lot of intermediate steps to disk, so it's useful for debugging but not for actual compiling.
 
 The main tips for improving build time are:
 
-- Create fully optimized builds less frequently — use ``-O0`` during frequent development iterations (or don't specify an optimization level).
-
-  - Compiling with higher levels of optimization can in some cases be noticeably slower: ``-O2`` is slower than ``-O1``, which is in turn slower than ``-O0``.
-  - Compiling with ``-O3`` is **especially** slow — this can be mitigated by also enabling ``-s AGGRESSIVE_VARIABLE_ELIMINATION=1`` (removing variables makes the ``-O3`` regalloc easier).
-
-- Compile without :ref:`line number debug information <emcc-g>` (use ``-O1`` or ``-g0`` instead of ``-g``):
-
-  - Currently builds with line-number debug information are slow (see issue `#216 <https://github.com/kripken/emscripten/issues/216>`_). Stripping the debug information significantly improves compile times.
+- Use ``-O0`` for fast iteration builds. You can still compile with higher optimization levels, but specifying ``-O0`` during link will make the link step much faster.
 
 - Compile on a machine with more cores:
 
-  - Emscripten can run some passes in parallel (specifically, the JavaScript optimisations). Increasing the number of cores results in an almost linear improvement.
-  - Emscripten will automatically use more cores if they are available. You can control how many cores are used  with ``EMCC_CORES=N`` (this is useful if you have many cores but relatively less memory).
-
-- Make sure that the native optimizer is being used, which greatly speeds up optimized builds as of 1.28.2. ``EMCC_DEBUG=1`` output should not report errors about the native optimizer failing to build or not being used because of a previous failed build (if it previously failed, do ``emcc --clear-cache`` then compile your file again, and the optimizer will be automatically rebuilt).
-
-- When you have multiple bitcode files as inputs, put the largest file first (LLVM linking links the second and later ones into the first, so less copying is done on the first input to the linker).
-
-- Having fewer bitcode files can be faster, so you might want to link files into larger files in parallel in your build system (you might already do this if you have logical libraries), and then the final command has fewer things to operate on.
-
-- You don't need to link into a single bitcode file yourself, you can call the final ``emcc`` command that emits JS with a list of files. ``emcc`` can then defer linking and avoid an intermediary step, if possible (this optimization is disabled by LTO and by `EMCC_DEBUG=2`).
+  - For compiling your source files, use a parallel build system (for example, in ``make`` you can do something like ``make -j8`` to run using 8 cores).
+  - For the link step, Emscripten can run some optimizations in parallel (specifically, Binaryen optimizations for wasm, and our JavaScript optimizations). Increasing the number of cores results in an almost linear improvement. Emscripten will automatically use more cores if they are available, but you can control that with ``EMCC_CORES=N`` in the environment (which is useful if you have many cores but relatively less memory).
 
 
 Why does my code run slowly?
@@ -85,7 +70,6 @@ Why is my compiled code big?
 Make sure you build with ``-O3`` or ``-Os`` so code is fully optimized and minified. You should use the closure compiler, gzip compression on your webserver, etc., see the :ref:`section on code size in Optimizing code <optimizing-code-size>`.
 
 
-
 Why does compiling code that works on another machine gives me errors?
 ======================================================================
 
@@ -100,11 +84,44 @@ Make sure that you are running an :ref:`optimized build <Optimizing-Code>` (smal
 Network latency is also a possible factor in startup time. Consider putting the file loading code in a separate script element from the generated code so that the browser can start the network download in parallel to starting up the codebase (run the :ref:`file packager <packaging-files>` and put file loading code in one script element, and the generated codebase in a later script element).
 
 
+.. _faq-local-webserver:
+
+How do I run a local webserver for testing / why does my program stall in "Downloading..." or "Preparing..."?
+=============================================================================================================
+
+That error can happen when loading the page using a ``file://`` URL, which works
+in some browsers but not in others. Instead, it's best
+to use a local webserver. For example, Python has one built in,
+``python -m http.server`` in Python 3 or ``python -m SimpleHTTPServer``
+in Python 2. After doing that, you can visit ``http://localhost:8000/``.
+
+Otherwise, to debug this, look for an error reported on the page itself, or in the browser devtools (web console and network tab), or in your webserver's logging.
+
+
 What is "No WebAssembly support found. Build with -s WASM=0 to target JavaScript instead" or "no native wasm support detected"?
 ===============================================================================================================================
 
 Those errors indicate that WebAssembly support is not present in the VM you are trying to run the code in. Compile with ``-s WASM=0`` to disable WebAssembly (and emit asm.js instead) if you want your code to run in such environments (all modern browsers support WebAssembly, but in some cases you may want to reach 100% of browsers, including legacy ones).
 
+
+Why do I get ``machine type must be wasm32`` or ``is not a valid input file`` during linking?
+=============================================================================================
+
+The first error means the linker inputs did not contain wasm32 code - that is,
+they contain instructions in some other format, like native x86 or ARM or
+something like that. You can run the ``file`` command-line utility to see what
+they actually contain. Common issues are:
+
+* LLVM IR from the old backend, if you built the project with a version before
+  1.39.0 (which used the old backend by default), and are doing an incremental
+  rebuild now. To fix that, do a complete rebuild from scratch of all your
+  project's files, including libraries (this error often happens if you have
+  prebuilt libraries from a third party; those must be recompiled too with the
+  new backend).
+* The build system was run without emscripten integration, and emitted native
+  code. To fix that, use emconfigure/emmake, see :ref:`Building-Projects`. In
+  this case ``emcc.py`` will show that second error,
+  "is not a valid input file".
 
 Why does my code fail to compile with an error message about inline assembly (or ``{"text":"asm"}``)?
 =====================================================================================================
@@ -174,10 +191,11 @@ Another option is to implement needed C APIs as JavaScript libraries (see ``--js
 What are my options for audio playback?
 =======================================
 
-Emscripten has partial support for SDL (1, not 2) audio, and OpenAL.
+Emscripten has partial support for SDL1 and 2 audio, and OpenAL.
 
-To use SDL audio, include it as ``#include <SDL/SDL_mixer.h>``. You can use it that way alongside SDL1, SDL2, or another library for platform integration.
+To use SDL1 audio, include it as ``#include <SDL/SDL_mixer.h>``. You can use it that way alongside SDL1, SDL2, or another library for platform integration.
 
+To use SDL2 audio, include it as ``#include <SDL2/SDL_mixer.h>`` and use `-s USE_SDL_MIXER=2`. Format support is currently limited to OGG and WAV.
 
 How can my compiled program access files?
 =========================================
@@ -198,7 +216,7 @@ It is possible to allow access to local file system for code running in *node.js
 How can I tell when the page is fully loaded and it is safe to call compiled functions?
 =======================================================================================
 
-(You may need this answer if you see an error saying something like ``you need to wait for the runtime to be ready (e.g. wait for main() to be called)``, which is a check enabled in ``ASSERTIONS`` builds.)
+(You may need this answer if you see an error saying something like ``native function `x` called before runtime initialization``, which is a check enabled in ``ASSERTIONS`` builds.)
 
 Calling a compiled function before a page has fully loaded can result in an error, if the function relies on files that may not be present (for example the :ref:`.mem <emcc-memory-init-file>` file and :ref:`preloaded <emcc-preload-file>` files are loaded asynchronously, and therefore if you just place some JS that calls compiled code in a ``--post-js``, that code will be called synchronously at the end of the combined JS file, potentially before the asynchronous event happens, which is bad).
 
@@ -239,13 +257,16 @@ Here is an example of how to use it:
 
 The crucial thing is that ``Module`` exists, and has the property ``onRuntimeInitialized``, before the script containing emscripten output (``my_project.js`` in this example) is loaded.
 
-Another option is to use the ``MODULARIZE`` option, using ``-s MODULARIZE=1``. That will put all of the generated JavaScript in a function, which you can call to create an instance. The instance has a promise-like `.then()` method, so if you build with say ``-s MODULARIZE=1 -s 'EXPORT_NAME="MyCode"'`` (see details in settings.js), then you can do something like this:
+Another option is to use the ``MODULARIZE`` option, using ``-s MODULARIZE=1``. That puts all of the generated JavaScript into a factory function, which you can call to create an instance of your module. The factory function returns a Promise that resolves with the module instance. The promise is resolved once it's safe to call the compiled code, i.e. after the compiled code has been downloaded and instantiated. For example, if you build with ``-s MODULARIZE=1 -s 'EXPORT_NAME="createMyModule"'``, then you can do this:
 
 ::
 
-    MyCode().then(function(Module) {
+    createMyModule(/* optional default settings */).then(function(Module) {
       // this is reached when everything is ready, and you can call methods on Module
     });
+
+Note that in ``MODULARIZE`` mode we do not look for a global Module object for default values. Default values must be passed as a parameter to the factory function.  (see details in settings.js)
+
 
 .. _faq-NO_EXIT_RUNTIME:
 
@@ -275,9 +296,9 @@ Why do functions in my C/C++ source code vanish when I compile to JavaScript, an
 
 Emscripten does dead code elimination of functions that are not called from the compiled code. While this does minimize code size, it can remove functions that you plan to call yourself (outside of the compiled code).
 
-To make sure a C function remains available to be called from normal JavaScript, it must be added to the `EXPORTED_FUNCTIONS <https://github.com/kripken/emscripten/blob/1.29.12/src/settings.js#L388>`_ using the *emcc* command line. For example, to prevent functions ``my_func()`` and ``main()`` from being removed/renamed, run *emcc* with: ::
+To make sure a C function remains available to be called from normal JavaScript, it must be added to the `EXPORTED_FUNCTIONS <https://github.com/emscripten-core/emscripten/blob/1.29.12/src/settings.js#L388>`_ using the *emcc* command line. For example, to prevent functions ``my_func()`` and ``main()`` from being removed/renamed, run *emcc* with: ::
 
-  ./emcc -s "EXPORTED_FUNCTIONS=['_main', '_my_func']"  ...
+  emcc -s "EXPORTED_FUNCTIONS=['_main', '_my_func']"  ...
 
 .. note::
 
@@ -343,19 +364,19 @@ The ``Module`` object will contain exported methods. For something to appear the
 
  ::
 
-  ./emcc -s "EXPORTED_FUNCTIONS=['_main', '_my_func']" ...
+  emcc -s "EXPORTED_FUNCTIONS=['_main', '_my_func']" ...
 
 would export a C method ``my_func`` (in addition to ``main``, in this example). And
 
  ::
 
-  ./emcc -s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall']" ...
+  emcc -s "EXTRA_EXPORTED_RUNTIME_METHODS=['ccall']" ...
 
 will export ``ccall``. In both cases you can then access the exported function on the ``Module`` object.
 
 .. note:: You can use runtime methods directly, without exporting them, if the compiler can see them used. For example, you can use ``getValue`` in ``EM_ASM`` code, or a ``--pre-js``, by calling it directly. The optimizer will not remove that JS runtime method because it sees it is used. You only need to use ``Module.getValue`` if you want to call that method from outside the JS code the compiler can see, and then you need to export it.
 
-.. note:: Emscripten used to export many runtime methods by default. This increased code size, and for that reason we've changed that default. If you depend on something that used to be exported, you should see a warning pointing you to the solution, in an unoptimized build, or a build with ``ASSERTIONS`` enabled, which we hope will minimize any annoyance. See ``Changelog.markdown`` for details.
+.. note:: Emscripten used to export many runtime methods by default. This increased code size, and for that reason we've changed that default. If you depend on something that used to be exported, you should see a warning pointing you to the solution, in an unoptimized build, or a build with ``ASSERTIONS`` enabled, which we hope will minimize any annoyance. See ``ChangeLog.md`` for details.
 
 .. _faq-runtime-change:
 
@@ -385,22 +406,67 @@ That may occur when running something like
 ::
 
   # this fails on most Linuxes
-  ./emcc a.c -s EXTRA_EXPORTED_RUNTIME_METHODS=['addOnPostRun']
+  emcc a.c -s EXTRA_EXPORTED_RUNTIME_METHODS=['addOnPostRun']
 
   # this fails on macOS
-  ./emcc a.c -s EXTRA_EXPORTED_RUNTIME_METHODS="['addOnPostRun']"
+  emcc a.c -s EXTRA_EXPORTED_RUNTIME_METHODS="['addOnPostRun']"
 
 You may need to quote things like this:
 
 ::
 
   # this works in the shell on most Linuxes and on macOS
-  ./emcc a.c -s "EXTRA_EXPORTED_RUNTIME_METHODS=['addOnPostRun']"
+  emcc a.c -s "EXTRA_EXPORTED_RUNTIME_METHODS=['addOnPostRun']"
 
   # or you may need something like this in a Makefile
-  ./emcc a.c -s EXTRA_EXPORTED_RUNTIME_METHODS=\"['addOnPostRun']\"
+  emcc a.c -s EXTRA_EXPORTED_RUNTIME_METHODS=\"['addOnPostRun']\"
 
-The proper syntax depends on the OS and shell you are in, and if you are writing in a Makefile, etc.
+The proper syntax depends on the OS and shell you are in, and if you are writing
+in a Makefile, etc. Things like spaces may also matter in some shells, for
+example you may need to avoid empty spaces between list items:
+
+::
+
+  # this works in the shell on most Linuxes and on macOS
+  emcc a.c -s "EXTRA_EXPORTED_RUNTIME_METHODS=['foo','bar']"
+
+(note there is no space after the ``,``).
+
+For simplicity, you may want to use a **response file**, that is,
+
+::
+
+  # this works in the shell on most Linuxes and on macOS
+  emcc a.c -s "EXTRA_EXPORTED_RUNTIME_METHODS=@extra.txt"
+
+and then ``extra.txt`` can be a plain file that contains ``['foo','bar']``. This
+avoids any issues with the shell environment parsing the string.
+
+How do I specify ``-s`` options in a CMake project?
+===================================================
+
+Simple things like this should just work in a ``CMakeLists.txt`` file:
+
+::
+
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s USE_SDL=2")
+
+However, some ``-s`` options may require quoting, or the space between ``-s``
+and the next argument may confuse CMake, when using things like
+``target_link_options``. To avoid those problems, you can use ``-sX=Y``
+notation, that is, without a space:
+
+::
+
+  # same as before but no space after -s
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -sUSE_SDL=2")
+  # example of target_link_options with a list of names
+  target_link_options(example PRIVATE "-sEXPORTED_FUNCTIONS=[_main]")
+
+Note also that ``_main`` does not need to be quoted, even though it's a string
+name (``emcc`` knows that the argument to ``EXPORTED_FUNCTIONS`` is a list of
+strings, so it accepts ``[a]`` or ``[a,b]`` etc.).
+
 
 Why do I get an odd python error complaining about libcxx.bc or libcxxabi.bc?
 =============================================================================
@@ -419,8 +485,8 @@ In the long term we hope to upgrade our internal JS parser. Meanwhile, you can m
 
 See also
 
- * https://github.com/kripken/emscripten/issues/6000
- * https://github.com/kripken/emscripten/issues/5700
+ * https://github.com/emscripten-core/emscripten/issues/6000
+ * https://github.com/emscripten-core/emscripten/issues/5700
 
 Why does running LLVM bitcode generated by emcc through **lli** break with errors about ``impure_ptr``?
 =======================================================================================================
@@ -444,24 +510,6 @@ Why do I get ``error: cannot compile this aggregate va_arg expression yet`` and 
 ==================================================================================================================================================================
 
 This is a limitation of the asm.js target in :term:`Clang`. This code is not currently supported.
-
-
-Why does building from source fail during linking (at 100%)?
-============================================================
-
-Building :ref:`Fastcomp from source <building-fastcomp-from-source>` (and hence the SDK) can fail at 100% progress. This is due to out of memory in the linking stage, and is reported as an error: ``collect2: error: ld terminated with signal 9 [Killed]``.
-
-The solution is to ensure the system has sufficient memory. On Ubuntu 14.04.1 LTS 64bit, you should use at least 6Gb.
-
-
-Why do I get odd rounding errors when using float variables?
-============================================================
-
-In asm.js, by default Emscripten uses doubles for all floating-point variables, that is, 64-bit floats even when C/C++ code contains 32-bit floats. This is simplest and most efficient to implement in JS as doubles are the only native numeric type. As a result, you may see rounding errors compared to native code using 32-bit floats, just because of the difference in precision between 32-bit and 64-bit floating-point values.
-
-To check if this is the issue you are seeing, build with ``-s PRECISE_F32=1``. This uses proper 32-bit floating-point values, at the cost of some extra code size overhead. This may be faster in some browsers, if they optimize ``Math.fround``, but can be slower in others. See ``src/settings.js`` for more details on this option.
-
-(This is not an issue for wasm, which has native float types.)
 
 
 How do I pass int64_t and uint64_t values from js into wasm functions?
